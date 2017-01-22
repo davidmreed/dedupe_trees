@@ -65,7 +65,7 @@ def __main__(argv):
 
     a = parser.parse_args()
 
-    logging.getLogger(__name__).setLevel(verbosity_levels[a.verbosity])
+    logging.getLogger('dedupe').setLevel(verbosity_levels[a.verbosity])
 
     # Create and number sources.
     sources = []

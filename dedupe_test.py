@@ -2,6 +2,7 @@
 
 import unittest
 import tempfile
+import os
 from dedupe import *
 
 class DummyEntry(object):
@@ -47,10 +48,6 @@ class test_SortBasedDuplicateResolver(unittest.TestCase):
         self.assertEqual(r, (['test', 'test', 'test'], []))
 
 
-class test_AttrBasedDuplicateResolver(unittest.TestCase):
-    pass
-
-
 class test_PathLengthDuplicateResolver(unittest.TestCase):
     def test_Sorting(self):
         source_one = DummyEntry('test1')
@@ -78,15 +75,83 @@ class test_CopyPatternDuplicateResolver(unittest.TestCase):
 
 
 class test_DeleteDuplicateFileSink(unittest.TestCase):
-    pass
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.files = []
+        for i in range(0, 10):
+            (handle, path) = tempfile.mkstemp(dir=self.temp_dir)
+
+            f = os.fdopen(handle, 'w')
+            f.write('test')
+            f.close()
+
+            self.files.append(path)
+
+    def test_Deletion(self):
+        s = DeleteDuplicateFileSink()
+
+        s.sink([DummyEntry(f) for f in self.files[:3]])
+
+        for i in range(0, 10):
+            if i < 3:
+                self.assertFalse(os.path.exists(self.files[i]))
+            else:
+                self.assertTrue(os.path.exists(self.files[i]))
+
+        s.sink([DummyEntry(f) for f in self.files[3:]])
+
+        self.assertEquals(len(os.listdir(self.temp_dir)), 0)
+
+    def tearDown(self):
+        for cwd, subdirs, fs in os.walk(self.temp_dir, topdown=False):
+            for f in fs:
+                os.unlink(os.path.join(cwd, f))
+            for d in subdirs:
+                os.rmdir(os.path.join(cwd, d))
+
+        os.rmdir(self.temp_dir)
 
 
 class test_SequesterDuplicateFileSink(unittest.TestCase):
-    pass
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.files = []
+        for i in range(0, 10):
+            (handle, path) = tempfile.mkstemp(dir=self.temp_dir)
 
+            f = os.fdopen(handle, 'w')
+            f.write('test')
+            f.close()
 
-class test_OutputOnlyDuplicateFileSink(unittest.TestCase):
-    pass
+            self.files.append(path)
+
+        self.temp_dir_two = tempfile.mkdtemp()
+
+    def test_Sequestration(self):
+        s = SequesterDuplicateFileSink(self.temp_dir_two)
+
+        s.sink([DummyEntry(f) for f in self.files])
+
+        for f in self.files:
+            self.assertTrue(os.path.exists(os.path.join(self.temp_dir_two, *f.split(os.path.sep))))
+            self.assertFalse(os.path.exists(f))
+
+    def tearDown(self):
+        for cwd, subdirs, fs in os.walk(self.temp_dir, topdown=False):
+            for f in fs:
+                os.unlink(os.path.join(cwd, f))
+            for d in subdirs:
+                os.rmdir(os.path.join(cwd, d))
+
+        for cwd, subdirs, fs in os.walk(self.temp_dir_two, topdown=False):
+            for f in fs:
+                os.unlink(os.path.join(cwd, f))
+            for d in subdirs:
+                os.rmdir(os.path.join(cwd, d))
+
+        os.rmdir(self.temp_dir)
+        os.rmdir(self.temp_dir_two)
+
 
 
 class test_FileEntry(unittest.TestCase):

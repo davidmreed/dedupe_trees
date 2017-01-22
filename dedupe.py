@@ -112,7 +112,7 @@ class DeleteDuplicateFileSink(object):
             try:
                 logger.debug('Deleting duplicate file %s', entry.path)
                 os.unlink(entry.path)
-            except e:
+            except Exception as e:
                 logger.error('Unable to delete duplicate file %s: %s', entry.path, e)
 
 
@@ -127,9 +127,18 @@ class SequesterDuplicateFileSink(object):
         for entry in files:
             try:
                 logger.debug('Sequestering duplicate file %s', entry.path)
-                os.renames(entry.path, os.path.join(self.sequester_path, entry.path))
-            except e:
-                logger.error('Unable to sequester duplicate file %s: %s', entry.path, e)
+                # We don't use os.renames because it has the bizarre side effect
+                # of pruning directories containing the original file, if empty.
+
+                # os.path.join will not correctly join if a subsequent path component
+                # is an absolute path; hence we split before joining.
+                new_path = os.path.join(self.sequester_path, *entry.path.split(os.path.sep))
+
+                if not os.path.exists(os.path.split(new_path)[0]):
+                    os.makedirs(os.path.split(new_path)[0])
+                os.rename(entry.path, new_path)
+            except Exception as e:
+                print ('Unable to sequester duplicate file %s: %s', entry.path, e)
 
 
 class OutputOnlyDuplicateFileSink(object):
