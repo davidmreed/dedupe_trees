@@ -192,7 +192,11 @@ class FileCatalog(object):
         return [self.store[key] for key in self.store.keys() if len(self.store[key]) > 1]
 
     def get_grouped_entries(self):
-        return reduce(operator.add, self.get_groups())
+        l = self.get_groups()
+        if len(l) > 0:
+            return reduce(operator.add, self.get_groups())
+
+        return []
 
 
 class Source(object):

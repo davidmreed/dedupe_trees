@@ -159,7 +159,22 @@ class test_FileEntry(unittest.TestCase):
 
 
 class test_FileCatalog(unittest.TestCase):
-    pass
+    def test_FileCatalog(self):
+        c = FileCatalog(lambda x: x)
+
+        c.add_entry('test')
+        self.assertEquals(c.get_groups(), [])
+        self.assertEquals(c.get_grouped_entries(), [])
+
+        c.add_entry('test')
+        self.assertEquals(c.get_groups(), [['test', 'test']])
+        self.assertEquals(c.get_grouped_entries(), ['test', 'test'])
+
+        c.add_entry('foo')
+        self.assertEquals(c.get_groups(), [['test', 'test']])
+        c.add_entry('foo')
+        self.assertEquals(c.get_groups(), [['test', 'test'], ['foo', 'foo']])
+        self.assertEquals(c.get_grouped_entries(), ['test', 'test', 'foo', 'foo'])
 
 
 class test_Source(unittest.TestCase):
