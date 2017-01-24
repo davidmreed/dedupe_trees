@@ -6,13 +6,45 @@ import os
 from dedupe import *
 
 class DummyEntry(object):
-    def __init__(self, path, source = None):
+    def __init__(self, path, digest = None, source = None):
         self.path = path
-        if source is not None:
-            self.source = source
+        self.digest = digest
+        self.source = source
 
     def __repr__(self):
         return self.path
+
+    def get_digest(self):
+        return self.digest
+
+    def get_size(self):
+        return self.digest
+
+
+class DummySource(Source):
+    def __init__(self, files):
+        self.files = files
+        self.path = 'TestSource'
+
+    def walk(self, ctx):
+        for f in self.files:
+            ctx.add_entry(f)
+
+
+class DummySink(DuplicateFileSink):
+    def __init__(self):
+        self.sunk = []
+
+    def sink(self, files):
+        self.sunk.extend(files)
+
+
+class DummyResolver(DuplicateResolver):
+    def __init__(self, key):
+        self.key = key
+
+    def resolve(self, flist):
+        return filter(lambda x: x.path != self.key, flist), filter(lambda x: x.path == self.key, flist)
 
 
 class test_SortBasedDuplicateResolver(unittest.TestCase):
@@ -54,9 +86,9 @@ class test_PathLengthDuplicateResolver(unittest.TestCase):
         source_two = DummyEntry(os.path.join('root', 'test2'))
         source_three = DummyEntry('test3')
 
-        file_one = DummyEntry(os.path.join(source_one.path, 'sub1', 'file1'), source_one)
-        file_two = DummyEntry(os.path.join(source_two.path, 'file2'), source_two)
-        file_three = DummyEntry(os.path.join(source_three.path, 'sub3', 'sub33', 'file3'), source_three)
+        file_one = DummyEntry(os.path.join(source_one.path, 'sub1', 'file1'), source = source_one)
+        file_two = DummyEntry(os.path.join(source_two.path, 'file2'), source = source_two)
+        file_three = DummyEntry(os.path.join(source_three.path, 'sub3', 'sub33', 'file3'), source = source_three)
 
         r = PathLengthDuplicateResolver().resolve([file_one, file_two, file_three])
 
@@ -164,17 +196,14 @@ class test_FileCatalog(unittest.TestCase):
 
         c.add_entry('test')
         self.assertEquals(c.get_groups(), [])
-        self.assertEquals(c.get_grouped_entries(), [])
 
         c.add_entry('test')
         self.assertEquals(c.get_groups(), [['test', 'test']])
-        self.assertEquals(c.get_grouped_entries(), ['test', 'test'])
 
         c.add_entry('foo')
         self.assertEquals(c.get_groups(), [['test', 'test']])
         c.add_entry('foo')
         self.assertEquals(c.get_groups(), [['test', 'test'], ['foo', 'foo']])
-        self.assertEquals(c.get_grouped_entries(), ['test', 'test', 'foo', 'foo'])
 
 
 class test_Source(unittest.TestCase):
@@ -182,8 +211,37 @@ class test_Source(unittest.TestCase):
 
 
 class test_DeduplicateOperation(unittest.TestCase):
-    pass
+    def test_DDO(self):
+        r1 = DummyResolver('test1')
+        r2 = DummyResolver('test2')
+        r3 = DummyResolver('test3')
+        f1 = DummyEntry('test1', digest='test')
+        f2 = DummyEntry('test2', digest='test')
+        f3 = DummyEntry('test3', digest='test')
+        f4 = DummyEntry('test4', digest='test')
+        f5 = DummyEntry('test5', digest='test5')
+        rs = [r1, r2, r3]
+        so = DummySource([f1, f2, f3, f4])
 
+        s = DummySink()
+        o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [r1], s)
+        o.run()
+        self.assertEquals(s.sunk, [f1])
+
+        s = DummySink()
+        o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [r1, r2], s)
+        o.run()
+        self.assertEquals(s.sunk, [f1, f2])
+
+        s = DummySink()
+        o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [r1, r2, r3], s)
+        o.run()
+        self.assertEquals(s.sunk, [f1, f2, f3])
+
+        s = DummySink()
+        o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [], s)
+        o.run()
+        self.assertEquals(s.sunk, [])
 
 if __name__ == '__main__':
     unittest.main()

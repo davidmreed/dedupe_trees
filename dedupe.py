@@ -159,6 +159,9 @@ class FileEntry(object):
         self.stat = os.stat(fpath)
         self.digest = None
 
+    def get_size(self):
+        return self.stat.st_size
+
     def get_digest(self):
         if self.digest is None:
             self.run_digest()
@@ -191,13 +194,6 @@ class FileCatalog(object):
     def get_groups(self):
         return [self.store[key] for key in self.store.keys() if len(self.store[key]) > 1]
 
-    def get_grouped_entries(self):
-        l = self.get_groups()
-        if len(l) > 0:
-            return reduce(operator.add, self.get_groups())
-
-        return []
-
 
 class Source(object):
     def __init__(self, dpath, order):
@@ -207,6 +203,7 @@ class Source(object):
     def walk(self, ctx):
         for cwd, subdirs, files in os.walk(self.path):
             for f in files:
+                # os.walk returns filenames, not paths
                 ctx.add_entry(FileEntry(os.path.join(cwd, f), self))
 
 
@@ -217,45 +214,59 @@ class DeduplicateOperation(object):
         self.sink = sink
 
     def run(self):
-        size_catalog = FileCatalog(operator.attrgetter('entry.stat.st_size'))
+        size_catalog = FileCatalog(lambda entry: entry.get_size())
         logger = logging.getLogger(__name__)
 
+        # Initial pass through the file tree. Identify candidate duplicate
+        # groups by equality of file size in bytes.
         logger.info('Building file catalog...')
-        for s in sources:
+        for s in self.sources:
             logger.info('Walking source %s', s.path)
-            s.walk(f)
+            s.walk(size_catalog)
 
+        # Second pass: use SHA digest to confirm duplicate entries.
         logger.info('Identifying duplicate file groups...')
 
         f = FileCatalog(lambda entry: entry.get_digest())
 
-        for entry in itertools.chain(size_catalog.get_groups()):
+        for entry in itertools.chain(*size_catalog.get_groups()):
             f.add_entry(entry)
 
-        to_keep = []
+        # Run confirmed duplicate groups through our chain of resolvers.
         to_sink = []
 
         for g in f.get_groups():
             logger.info('Attempting to resolve group of %d duplicate files:\n%s',
                         len(g),
                         '\n'.join(map(operator.attrgetter('path'), g)))
-            n = g
+            originals = g
 
-            for r in selected_resolvers:
+            for r in self.resolvers:
                 logger.debug('Applying resolver %s.', r)
-                (n, d) = r.resolve(n)
+                (originals, duplicates) = r.resolve(originals)
                 logger.debug('Resolver found duplicates:\n%s\n and originals:\n%s',
-                             '\n'.join(map(operator.attrgetter('path'), d)),
-                             '\n'.join(map(operator.attrgetter('path'), n)))
-                to_sink.extend(d)
+                             '\n'.join(map(operator.attrgetter('path'), duplicates)),
+                             '\n'.join(map(operator.attrgetter('path'), originals)))
 
-            if len(n) > 1:
+                if len(originals) > 0:
+                    # The resolver returned more than one original. Sink the
+                    # duplicates and proceed to the next resolver.
+                    to_sink.extend(duplicates)
+                elif len(originals) == 1:
+                    # Narrowed to a single original file. Stop running resolvers
+                    # on this group.
+                    break
+                else:
+                    # If the resolver identified all of the files as duplicates,
+                    # reset and punt to the next resolver.
+                    originals = duplicates
+
+            if len(originals) > 1:
                 logger.info('Marking files as originals (unable to resolve duplicates):\n%s',
-                            '\n'.join(map(operator.attrgetter('path'), n)))
+                            '\n'.join(map(operator.attrgetter('path'), originals)))
             else:
                 logger.info('Marking file as original:\n%s',
-                            n[0].path)
+                            originals[0].path)
 
-            to_keep.extend(n)
-
-        sink.sink(to_sink)
+        # Appropriately discard all of the identified duplicate files.
+        self.sink.sink(to_sink)
