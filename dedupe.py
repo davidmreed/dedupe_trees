@@ -20,6 +20,9 @@ class DuplicateResolver(object):
 
 
 class SortBasedDuplicateResolver(DuplicateResolver):
+    # Resolver based on sorting on some attribute pulled from each entry
+    # by a rank_function.
+
     def __init__(self, rank_function, reverse=False):
         self.rank_function = rank_function
         super(SortBasedDuplicateResolver, self).__init__(reverse)
@@ -45,11 +48,14 @@ class SortBasedDuplicateResolver(DuplicateResolver):
 
 
 class AttrBasedDuplicateResolver(SortBasedDuplicateResolver):
+    # Non-abstract base class for resolvers using an attrgetter to sort.
     def __init__(self, attribute, reverse=False):
         super(AttrBasedDuplicateResolver, self).__init__(operator.attrgetter(attribute), reverse)
 
 
 class PathLengthDuplicateResolver(SortBasedDuplicateResolver):
+    # Resolve based on the shortest path length (by component count)
+    # excluding the source path.
     def __init__(self, reverse=False):
         super(PathLengthDuplicateResolver, self).__init__(lambda x:
                                                           len(x.path.split(os.path.sep))
@@ -58,21 +64,25 @@ class PathLengthDuplicateResolver(SortBasedDuplicateResolver):
 
 
 class SourceOrderDuplicateResolver(AttrBasedDuplicateResolver):
+    # Resolve based on the order of the sources specfied on the command line.
     def __init__(self, reverse=False):
-        super(SourceOrderDuplicateResolver, self).__init__(reverse, 'source.order')
+        super(SourceOrderDuplicateResolver, self).__init__('source.order', reverse)
 
 
 class ModificationDateDuplicateResolver(AttrBasedDuplicateResolver):
+    # Resolve based on file modification date.
         def __init__(self, reverse=False):
-            super(ModificationDateDuplicateResolver, self).__init__(reverse, 'stat.st_mtime')
+            super(ModificationDateDuplicateResolver, self).__init__('stat.st_mtime', reverse)
 
 
 class CreationDateDuplicateResolver(AttrBasedDuplicateResolver):
+    # Resolve based on file creation date.
         def __init__(self, reverse=False):
-            super(CreationDateDuplicateResolver, self).__init__(reverse, 'stat.st_ctime')
+            super(CreationDateDuplicateResolver, self).__init__('stat.st_ctime', reverse)
 
 
 class CopyPatternDuplicateResolver(DuplicateResolver):
+    # Resolve by removing files whose names match common "copy" patterns.
     copy_patterns = [re.compile('^Copy of'), re.compile('.* copy [0-9]+\.[a-zA-Z0-9]+$')]
 
     def resolve(self, flist):
@@ -85,6 +95,7 @@ class CopyPatternDuplicateResolver(DuplicateResolver):
 
 
 class InteractiveDuplicateResolver(DuplicateResolver):
+    # Allow the user to interactively resolve duplicate files.
     def resolve(self, flist):
         for i in range(len(flist)):
             print '%2d\t%s\n' % (i, flist[i])
@@ -98,14 +109,12 @@ class InteractiveDuplicateResolver(DuplicateResolver):
 
 class DuplicateFileSink(object):
     # Abstract base class
-
-    arguments = []
-
     def sink(self, files):
         pass
 
 
 class DeleteDuplicateFileSink(object):
+    # Immediately delete duplicate files.
     def sink(self, files):
         logger = logging.getLogger(__name__)
         for entry in files:
@@ -117,9 +126,9 @@ class DeleteDuplicateFileSink(object):
 
 
 class SequesterDuplicateFileSink(object):
-    arguments = [{'name': 'sequester_path', 'type': 'string', 'nargs': 1}]
+    # Move duplicate files into a separate directory tree
 
-    def __init__(self, sequester_path):
+    def __init__(self, sequester_path=None):
         self.sequester_path = sequester_path
 
     def sink(self, files):
@@ -138,11 +147,11 @@ class SequesterDuplicateFileSink(object):
                     os.makedirs(os.path.split(new_path)[0])
                 os.rename(entry.path, new_path)
             except Exception as e:
-                print ('Unable to sequester duplicate file %s: %s', entry.path, e)
+                logger.error('Unable to sequester duplicate file %s: %s', entry.path, e)
 
 
 class OutputOnlyDuplicateFileSink(object):
-    arguments = [{'name': 'output_file', 'type': argparse.FileType, 'nargs': 1}]
+    # Only output the names of duplicate files.
 
     def __init__(self, output_file=sys.stdout):
         self.output_file = output_file
@@ -221,7 +230,7 @@ class DeduplicateOperation(object):
         # groups by equality of file size in bytes.
         logger.info('Building file catalog...')
         for s in self.sources:
-            logger.info('Walking source %s', s.path)
+            logger.info('Walking source %d at %s', s.order, s.path)
             s.walk(size_catalog)
 
         # Second pass: use SHA digest to confirm duplicate entries.
@@ -269,4 +278,5 @@ class DeduplicateOperation(object):
                             originals[0].path)
 
         # Appropriately discard all of the identified duplicate files.
+        logger.info('Finished. %d duplicate files located.', len(to_sink))
         self.sink.sink(to_sink)

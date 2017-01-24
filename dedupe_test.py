@@ -25,6 +25,7 @@ class DummySource(Source):
     def __init__(self, files):
         self.files = files
         self.path = 'TestSource'
+        self.order = 1
 
     def walk(self, ctx):
         for f in self.files:

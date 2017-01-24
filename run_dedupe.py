@@ -3,69 +3,80 @@
 import argparse
 from dedupe import *
 
-class ResolverAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        if not hasattr(namespace, self.dest):
-            setattr(namespace, self.dest, [])
-
-        resolver = resolvers[option_string[10:]]
-
-        if len(values) > 0:
-            resolver.reverse = values[0].lower() == 'desc'
-
-        getattr(namespace, self.dest).append(resolver)
-
+# Establish dictionaries mapping command-line arguments to resolvers and sinks
 resolvers = {
-    'path_length': PathLengthDuplicateResolver,
-    'source_order': SourceOrderDuplicateResolver,
-    'mod_date': ModificationDateDuplicateResolver,
-    'create_date': CreationDateDuplicateResolver,
-    'copy_pattern': CopyPatternDuplicateResolver,
+    'path-length': PathLengthDuplicateResolver,
+    'source-order': SourceOrderDuplicateResolver,
+    'mod-date': ModificationDateDuplicateResolver,
+    'create-date': CreationDateDuplicateResolver,
+    'copy-pattern': CopyPatternDuplicateResolver,
     'interactive': InteractiveDuplicateResolver
 }
 
 sinks = {
-    'delete': DeleteDuplicateFileSink,
-    'sequester': SequesterDuplicateFileSink,
-    'none': OutputOnlyDuplicateFileSink
+    'delete': { 'class': DeleteDuplicateFileSink, 'args': [] },
+    'sequester': {'class': SequesterDuplicateFileSink,
+                  'args': [{'name': 'sequester-path', 'type': str, 'nargs': 1}]},
+    'output-only': {'class': OutputOnlyDuplicateFileSink,
+                    'args': [{'name': 'output-file', 'type': argparse.FileType,
+                              'nargs': 1, 'default': sys.stdout}]}
 }
 
 
-def __main__(argv):
+class ResolverAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not hasattr(namespace, self.dest) or getattr(namespace, self.dest) is None:
+            setattr(namespace, self.dest, [])
+
+        # Determine the human-readable name of the resolver by stripping off the
+        # --resolve- prefix
+        resolver = resolvers[option_string[10:]]()
+
+        # By default, sort in ascending order unless 'desc' is specified
+        if values is not None and len(values) > 0:
+            resolver.reverse = values[0].lower() == 'desc'
+
+        getattr(namespace, self.dest).append(resolver)
+
+def main():
+    # Parse command-line arguments
     parser = argparse.ArgumentParser()
 
     verbosity_levels = {'quiet': logging.NOTSET, 'errors': logging.ERROR,
                         'normal': logging.INFO, 'verbose': logging.DEBUG}
 
-    parser.add_argument('-v', '--verbosity', type='string',
+    parser.add_argument('-v', '--verbosity',
                         choices=verbosity_levels.keys(),
                         dest='verbosity', default='normal',
                         help='Log all actions')
 
+    # Resolvers take an optional argument 'desc' to indicate descending/reverse sorting
     for item in resolvers.keys():
         parser.add_argument('--resolve-' + item, dest='resolvers', nargs='?',
-                            action='ResolverAction')
+                            action=ResolverAction)
 
+    # Only one sink can be supplied. Each sink can provide its own arguments.
     sink_group = parser.add_mutually_exclusive_group()
     for item in sinks.keys():
         sink_group.add_argument('--sink-' + item, dest='sink_class',
                                 action='store_const', const=item)
 
-        sink_class = sinks[item]
+        sink_arguments = sinks[item]['args']
 
-        for sink_arg in sink_class.arguments:
-            parser.add_argument('--sink-' + item.name + '-'
-                                + sink_arg.replace('_', '-'),
-                                dest='sink_arguments_' + item + '_' + sink_arg,
-                                action='store', type=item.type,
-                                nargs=item.nargs)
+        for sink_arg in sink_arguments:
+            parser.add_argument('--sink-' + item + '-'
+                                + sink_arg['name'],
+                                dest='sink-arguments-' + item + '-' + sink_arg['name'],
+                                action='store', type=sink_arg['type'],
+                                nargs=sink_arg['nargs'])
 
-    parser.add_argument('source_dir', action='append', required=True,
+    parser.add_argument('source_dir', nargs='+',
                         help='A directory tree to be scanned.')
 
     a = parser.parse_args()
 
     logging.getLogger('dedupe').setLevel(verbosity_levels[a.verbosity])
+    logging.getLogger('dedupe').addHandler(logging.StreamHandler())
 
     # Create and number sources.
     sources = []
@@ -74,12 +85,18 @@ def __main__(argv):
         sources.append(Source(a.source_dir[i], i))
 
     # Create sink, pulling out applicable parameters.
-    params = {k[len('sink_arguments_' + a.sink_class):]: v
-              for k, v in a
-              if k.startswith('sink_arguments_' + a.sink_class)}
-    sink = sinks[a.sink_class](**params)
+    params = {}
+    for arg in sinks[a.sink_class]['args']:
+        if hasattr(a, 'sink-' + a.sink_class + '-' + arg['name']):
+            params[arg['name']] = getattr(a, 'sink-' + a.sink_class + '-' + arg['name'])
+
+
+    sink = sinks[a.sink_class]['class'](**params)
 
     # Run the operation
     op = DeduplicateOperation(sources, a.resolvers, sink)
 
     op.run()
+
+if __name__ == '__main__':
+    exit(main())
