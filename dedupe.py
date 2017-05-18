@@ -30,8 +30,6 @@ class SortBasedDuplicateResolver(DuplicateResolver):
     def resolve(self, flist):
         if len(flist) > 1:
             q = sorted(flist, key=self.rank_function, reverse=self.reverse)
-            c = cmp(self.rank_function(q[0]),
-                    self.rank_function(q[1]))
 
             pivot = None
             rank = self.rank_function(q[0])
@@ -64,7 +62,7 @@ class PathLengthDuplicateResolver(SortBasedDuplicateResolver):
 
 
 class SourceOrderDuplicateResolver(AttrBasedDuplicateResolver):
-    # Resolve based on the order of the sources specfied on the command line.
+    # Resolve based on the order of the sources specified on the command line.
     def __init__(self, reverse=False):
         super(SourceOrderDuplicateResolver, self).__init__('source.order', reverse)
 
@@ -100,7 +98,7 @@ class InteractiveDuplicateResolver(DuplicateResolver):
         for i in range(len(flist)):
             print '%2d\t%s\n' % (i, flist[i])
 
-        d = int(raw_input('Enter file to retain: '))
+        d = int(input('Enter file to retain: '))
 
         dupes = copy.copy(flist)
         dupes.pop(d)
@@ -141,10 +139,10 @@ class SequesterDuplicateFileSink(object):
 
                 # os.path.join will not correctly join if a subsequent path component
                 # is an absolute path; hence we split before joining.
-                new_path = os.path.join(self.sequester_path, *entry.path.split(os.path.sep))
+                new_path = os.path.join(self.sequester_path, *os.path.splitdrive(os.path.normpath(entry.path))[1].split(os.path.sep))
 
-                if not os.path.exists(os.path.split(new_path)[0]):
-                    os.makedirs(os.path.split(new_path)[0])
+                if not os.path.exists(os.path.dirname(new_path)):
+                    os.makedirs(os.path.dirname(new_path))
                 os.rename(entry.path, new_path)
             except Exception as e:
                 logger.error('Unable to sequester duplicate file %s: %s', entry.path, e)
