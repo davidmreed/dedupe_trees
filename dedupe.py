@@ -8,6 +8,10 @@ import logging
 import sys
 import argparse
 
+def join_paths_componentwise(path1, path2):
+    # os.path.join will not correctly join if a subsequent path component
+    # is an absolute path; hence we split before joining.
+    return os.path.join(path1, *(os.path.splitdrive(os.path.normpath(path2))[1].split(os.path.sep)))
 
 class DuplicateResolver(object):
     # Abstract base class
@@ -38,6 +42,8 @@ class SortBasedDuplicateResolver(DuplicateResolver):
                     # Found the point where the sorting is meaningful
                     pivot = i
                     break
+
+            print "In resolve(): pivot = {0}, q = ".format(pivot, q)
 
             if pivot is not None:
                 return q[:pivot], q[pivot:]
@@ -129,6 +135,9 @@ class SequesterDuplicateFileSink(object):
     def __init__(self, sequester_path=None):
         self.sequester_path = sequester_path
 
+    def construct_sequestered_path(self, file_path):
+        return join_paths_componentwise(self.sequester_path, file_path)
+
     def sink(self, files):
         logger = logging.getLogger(__name__)
         for entry in files:
@@ -139,7 +148,7 @@ class SequesterDuplicateFileSink(object):
 
                 # os.path.join will not correctly join if a subsequent path component
                 # is an absolute path; hence we split before joining.
-                new_path = os.path.join(self.sequester_path, *os.path.splitdrive(os.path.normpath(entry.path))[1].split(os.path.sep))
+                new_path = self.construct_sequestered_path(entry.path)
 
                 if not os.path.exists(os.path.dirname(new_path)):
                     os.makedirs(os.path.dirname(new_path))
