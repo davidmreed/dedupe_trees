@@ -14,9 +14,9 @@ resolvers = {
 }
 
 sinks = {
-    'delete': { 'class': DeleteDuplicateFileSink, 'args': [] },
+    'delete': {'class': DeleteDuplicateFileSink, 'args': []},
     'sequester': {'class': SequesterDuplicateFileSink,
-                  'args': [{'name': 'sequester-path', 'type': str, 'nargs': 1}]},
+                  'args': [{'name': 'path', 'type': str, 'nargs': 1}]},
     'output-only': {'class': OutputOnlyDuplicateFileSink,
                     'args': [{'name': 'output-file', 'type': argparse.FileType,
                               'nargs': 1, 'default': sys.stdout}]}
@@ -38,6 +38,7 @@ class ResolverAction(argparse.Action):
 
         getattr(namespace, self.dest).append(resolver)
 
+
 def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser()
@@ -51,13 +52,13 @@ def main():
                         help='Log all actions')
 
     # Resolvers take an optional argument 'desc' to indicate descending/reverse sorting
-    for item in resolvers.keys():
+    for item in resolvers:
         parser.add_argument('--resolve-' + item, dest='resolvers', nargs='?',
                             action=ResolverAction)
 
     # Only one sink can be supplied. Each sink can provide its own arguments.
     sink_group = parser.add_mutually_exclusive_group()
-    for item in sinks.keys():
+    for item in sinks:
         sink_group.add_argument('--sink-' + item, dest='sink_class',
                                 action='store_const', const=item)
 
@@ -66,7 +67,8 @@ def main():
         for sink_arg in sink_arguments:
             parser.add_argument('--sink-' + item + '-'
                                 + sink_arg['name'],
-                                dest='sink-arguments-' + item + '-' + sink_arg['name'],
+                                dest='sink-arguments-' + item +
+                                '-' + sink_arg['name'],
                                 action='store', type=sink_arg['type'],
                                 nargs=sink_arg['nargs'])
 
@@ -87,9 +89,9 @@ def main():
     # Create sink, pulling out applicable parameters.
     params = {}
     for arg in sinks[a.sink_class]['args']:
-        if hasattr(a, 'sink-' + a.sink_class + '-' + arg['name']):
-            params[arg['name']] = getattr(a, 'sink-' + a.sink_class + '-' + arg['name'])
-
+        if hasattr(a, 'sink-arguments-' + a.sink_class + '-' + arg['name']):
+            params[arg['name']] = getattr(
+                a, 'sink-arguments-' + a.sink_class + '-' + arg['name'])[0]
 
     sink = sinks[a.sink_class]['class'](**params)
 
@@ -97,6 +99,7 @@ def main():
     op = DeduplicateOperation(sources, a.resolvers, sink)
 
     op.run()
+
 
 if __name__ == '__main__':
     exit(main())

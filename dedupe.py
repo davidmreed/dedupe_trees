@@ -7,11 +7,14 @@ import re
 import logging
 import sys
 import argparse
+from functools import reduce
+
 
 def join_paths_componentwise(path1, path2):
     # os.path.join will not correctly join if a subsequent path component
     # is an absolute path; hence we split before joining.
     return os.path.join(path1, *(os.path.splitdrive(os.path.normpath(path2))[1].split(os.path.sep)))
+
 
 class DuplicateResolver(object):
     # Abstract base class
@@ -43,8 +46,6 @@ class SortBasedDuplicateResolver(DuplicateResolver):
                     pivot = i
                     break
 
-            print "In resolve(): pivot = {0}, q = ".format(pivot, q)
-
             if pivot is not None:
                 return q[:pivot], q[pivot:]
 
@@ -54,7 +55,8 @@ class SortBasedDuplicateResolver(DuplicateResolver):
 class AttrBasedDuplicateResolver(SortBasedDuplicateResolver):
     # Non-abstract base class for resolvers using an attrgetter to sort.
     def __init__(self, attribute, reverse=False):
-        super(AttrBasedDuplicateResolver, self).__init__(operator.attrgetter(attribute), reverse)
+        super(AttrBasedDuplicateResolver, self).__init__(
+            operator.attrgetter(attribute), reverse)
 
 
 class PathLengthDuplicateResolver(SortBasedDuplicateResolver):
@@ -62,7 +64,8 @@ class PathLengthDuplicateResolver(SortBasedDuplicateResolver):
     # excluding the source path.
     def __init__(self, reverse=False):
         super(PathLengthDuplicateResolver, self).__init__(lambda x:
-                                                          len(x.path.split(os.path.sep))
+                                                          len(x.path.split(
+                                                              os.path.sep))
                                                           - len(x.source.path.split(os.path.sep)),
                                                           reverse)
 
@@ -70,39 +73,43 @@ class PathLengthDuplicateResolver(SortBasedDuplicateResolver):
 class SourceOrderDuplicateResolver(AttrBasedDuplicateResolver):
     # Resolve based on the order of the sources specified on the command line.
     def __init__(self, reverse=False):
-        super(SourceOrderDuplicateResolver, self).__init__('source.order', reverse)
+        super(SourceOrderDuplicateResolver, self).__init__(
+            'source.order', reverse)
 
 
 class ModificationDateDuplicateResolver(AttrBasedDuplicateResolver):
     # Resolve based on file modification date.
-        def __init__(self, reverse=False):
-            super(ModificationDateDuplicateResolver, self).__init__('stat.st_mtime', reverse)
+    def __init__(self, reverse=False):
+        super(ModificationDateDuplicateResolver,
+              self).__init__('stat.st_mtime', reverse)
 
 
 class CreationDateDuplicateResolver(AttrBasedDuplicateResolver):
     # Resolve based on file creation date.
-        def __init__(self, reverse=False):
-            super(CreationDateDuplicateResolver, self).__init__('stat.st_ctime', reverse)
+    def __init__(self, reverse=False):
+        super(CreationDateDuplicateResolver, self).__init__(
+            'stat.st_ctime', reverse)
 
 
 class CopyPatternDuplicateResolver(DuplicateResolver):
     # Resolve by removing files whose names match common "copy" patterns.
-    copy_patterns = [re.compile('^Copy of'), re.compile('.* copy [0-9]+\.[a-zA-Z0-9]+$')]
+    copy_patterns = [re.compile('^Copy of'), re.compile(
+        '.* copy [0-9]+\\.[a-zA-Z0-9]+$')]
 
     def resolve(self, flist):
-        determiner = lambda entry: reduce(operator.or_,
-                                          [re.match(pattern, entry.path) is not None
-                                           for pattern in self.copy_patterns])
+        def determiner(entry): return reduce(operator.or_,
+                                             [re.match(pattern, entry.path) is not None
+                                              for pattern in self.copy_patterns])
 
-        return (filter(lambda q: not determiner(q), flist),
-                filter(determiner, flist))
+        return (list(filter(lambda q: not determiner(q), flist)),
+                list(filter(determiner, flist)))
 
 
 class InteractiveDuplicateResolver(DuplicateResolver):
     # Allow the user to interactively resolve duplicate files.
     def resolve(self, flist):
         for i in range(len(flist)):
-            print '%2d\t%s\n' % (i, flist[i])
+            print('%2d\t%s\n' % (i, flist[i]))
 
         d = int(input('Enter file to retain: '))
 
@@ -126,14 +133,15 @@ class DeleteDuplicateFileSink(object):
                 logger.debug('Deleting duplicate file %s', entry.path)
                 os.unlink(entry.path)
             except Exception as e:
-                logger.error('Unable to delete duplicate file %s: %s', entry.path, e)
+                logger.error(
+                    'Unable to delete duplicate file %s: %s', entry.path, e)
 
 
 class SequesterDuplicateFileSink(object):
     # Move duplicate files into a separate directory tree
 
-    def __init__(self, sequester_path=None):
-        self.sequester_path = sequester_path
+    def __init__(self, path=None):
+        self.sequester_path = path
 
     def construct_sequestered_path(self, file_path):
         return join_paths_componentwise(self.sequester_path, file_path)
@@ -141,20 +149,19 @@ class SequesterDuplicateFileSink(object):
     def sink(self, files):
         logger = logging.getLogger(__name__)
         for entry in files:
-            try:
-                logger.debug('Sequestering duplicate file %s', entry.path)
-                # We don't use os.renames because it has the bizarre side effect
-                # of pruning directories containing the original file, if empty.
+           # try:
+            logger.debug('Sequestering duplicate file %s', entry.path)
+            # We don't use os.renames because it has the bizarre side effect
+            # of pruning directories containing the original file, if empty.
 
-                # os.path.join will not correctly join if a subsequent path component
-                # is an absolute path; hence we split before joining.
-                new_path = self.construct_sequestered_path(entry.path)
+            new_path = self.construct_sequestered_path(entry.path)
 
-                if not os.path.exists(os.path.dirname(new_path)):
-                    os.makedirs(os.path.dirname(new_path))
-                os.rename(entry.path, new_path)
-            except Exception as e:
-                logger.error('Unable to sequester duplicate file %s: %s', entry.path, e)
+            if not os.path.exists(os.path.dirname(new_path)):
+                os.makedirs(os.path.dirname(new_path))
+            os.rename(entry.path, new_path)
+           # except Exception as e:
+           #     logger.error(
+           #         'Unable to sequester duplicate file %s: %s', entry.path, e)
 
 
 class OutputOnlyDuplicateFileSink(object):
@@ -196,7 +203,8 @@ class FileEntry(object):
                 d.update(buf)
 
         self.digest = d.hexdigest()
-        logging.getLogger(__name__).debug('Found digest %s for path %s.', self.digest, self.path)
+        logging.getLogger(__name__).debug(
+            'Found digest %s for path %s.', self.digest, self.path)
 
 
 class FileCatalog(object):
@@ -261,7 +269,8 @@ class DeduplicateOperation(object):
                 logger.debug('Applying resolver %s.', r)
                 (originals, duplicates) = r.resolve(originals)
                 logger.debug('Resolver found duplicates:\n%s\n and originals:\n%s',
-                             '\n'.join(map(operator.attrgetter('path'), duplicates)),
+                             '\n'.join(
+                                 map(operator.attrgetter('path'), duplicates)),
                              '\n'.join(map(operator.attrgetter('path'), originals)))
 
                 if len(originals) > 0:
