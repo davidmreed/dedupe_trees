@@ -251,7 +251,7 @@ class test_FileSystemTestBase(object):
                         with open(this_file_path, mode='r') as this_file:
                             contents = this_file.read()
 
-                        self.assertEquals(states[this_file_path], contents)
+                        self.assertEqual(states[this_file_path], contents)
 
                     del states[this_file_path]
                 else:
@@ -260,7 +260,7 @@ class test_FileSystemTestBase(object):
 
         # There should be no further keys remaining in the dictionary
 
-        self.assertEquals({}, states)
+        self.assertEqual({}, states)
 
     def tearDown(self):
         for cwd, subdirs, fs in os.walk(self.temp_dir, topdown=False):
@@ -311,7 +311,7 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
         self.entry_state = [
             (os.path.join('source1', 'file1'), 'Contents1'),
-            (os.path.join('source1', 'file2'), 'Contents1'),
+            (os.path.join('source1', 'Copy of file1'), 'Contents1'),
             (os.path.join('source1', 'file3'), 'Contents2'),
             (os.path.join('sources', 'source2', 'file4'), 'Contents1'),
             (os.path.join('sources', 'source2', 'file5'), 'Contents2'),
@@ -323,112 +323,149 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
         ]
         super(test_Integration, self).setUp()
 
-    def test_Integration_DepthAndSourceOrder_DeleteSink(self):
+    def perform(self, resolvers, sink, exit_states):
         o = DeduplicateOperation([Source(self.get_absolute_path('source1'), 1),
                                   Source(self.get_absolute_path(
                                       os.path.join('sources', 'source2')), 2),
                                   Source(self.get_absolute_path(
                                       os.path.join('sources', 'source3')), 3),
                                   Source(self.get_absolute_path(os.path.join('sources', 'source4')), 4)],
-                                 [PathLengthDuplicateResolver(
-                                 ), SourceOrderDuplicateResolver()],
-                                 DeleteDuplicateFileSink())
+                                 resolvers,
+                                 sink)
 
         o.run()
 
-        self.check_exit_state([
-            (os.path.join('source1', 'file1'), 'Contents1'),
-            (os.path.join('source1', 'file2'), 'Contents1'),
-            (os.path.join('source1', 'file3'), 'Contents2'),
-            (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
-            (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
-            (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
-        ])
+        self.check_exit_state(exit_states)
+
+    def test_Integration_DepthAndSourceOrder_DeleteSink(self):
+        self.perform([PathLengthDuplicateResolver(), SourceOrderDuplicateResolver()], DeleteDuplicateFileSink(),
+            [
+                (os.path.join('source1', 'file1'), 'Contents1'),
+                (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5')
+            ]
+        )
 
     def test_Integration_DepthAndSourceOrder_SequesterSink(self):
-        o = DeduplicateOperation([Source(self.get_absolute_path('source1'), 1),
-                                  Source(self.get_absolute_path(
-                                      os.path.join('sources', 'source2')), 2),
-                                  Source(self.get_absolute_path(
-                                      os.path.join('sources', 'source3')), 3),
-                                  Source(self.get_absolute_path(os.path.join('sources', 'source4')), 4)],
-                                 [PathLengthDuplicateResolver(
-                                 ), SourceOrderDuplicateResolver()],
-                                 SequesterDuplicateFileSink(self.get_absolute_path(os.path.join('sources', 'sequestration'))))
+        self.perform([PathLengthDuplicateResolver(), SourceOrderDuplicateResolver()],
+                 SequesterDuplicateFileSink(self.get_absolute_path(
+                     os.path.join('sources', 'sequestration'))),
+            [
+                (os.path.join('source1', 'file1'), 'Contents1'),
+                (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source2', 'file4'))), 'Contents1'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source2', 'file5'))), 'Contents2'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source4', 'file9'))), 'Contents1'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source4', 'file10'))), 'Contents5')
+            ]
+        )
 
-        o.run()
-
-        self.check_exit_state([
-            (os.path.join('source1', 'file1'), 'Contents1'),
-            (os.path.join('source1', 'file2'), 'Contents1'),
-            (os.path.join('source1', 'file3'), 'Contents2'),
-            (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
-            (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
-            (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source2', 'file4'))), 'Contents1'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source2', 'file5'))), 'Contents2'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source4', 'file9'))), 'Contents1'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source4', 'file10'))), 'Contents5')
-        ])
+    def test_Integration_CopyPattern_DeleteSink(self):
+        self.perform([CopyPatternDuplicateResolver()], DeleteDuplicateFileSink(),
+            [
+                (os.path.join('source1', 'file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file4'), 'Contents1'),
+                (os.path.join('sources', 'source2', 'file5'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+                (os.path.join('sources', 'source4', 'file9'), 'Contents1'),
+                (os.path.join('sources', 'source4', 'file10'), 'Contents5')
+            ]
+        )
 
 
 class test_CommandLine_Integration(test_Integration):
-    def test_Integration_DepthAndSourceOrder_DeleteSink(self):
+    def perform(self, args, exit_states):
         from run_dedupe import main as rd_main
-
-        args = ['--resolve-path-length', '--resolve-source-order', '--sink-delete',
-                self.get_absolute_path('source1'),
-                self.get_absolute_path(os.path.join('sources', 'source2')),
-                self.get_absolute_path(os.path.join('sources', 'source3')),
-                self.get_absolute_path(os.path.join('sources', 'source4'))]
 
         with unittest.mock.patch('sys.argv', args):
             rd_main()
 
-        self.check_exit_state([
-            (os.path.join('source1', 'file1'), 'Contents1'),
-            (os.path.join('source1', 'file2'), 'Contents1'),
-            (os.path.join('source1', 'file3'), 'Contents2'),
-            (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
-            (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
-            (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
-        ])
+        self.check_exit_state(exit_states)
+
+    def test_Integration_DepthAndSourceOrder_DeleteSink(self):
+        self.perform(
+            [
+                'run_dedupe.py', '--resolve-path-length', '--resolve-source-order', '--sink-delete',
+                self.get_absolute_path('source1'),
+                self.get_absolute_path(os.path.join('sources', 'source2')),
+                self.get_absolute_path(os.path.join('sources', 'source3')),
+                self.get_absolute_path(os.path.join('sources', 'source4'))
+            ],
+            [
+                (os.path.join('source1', 'file1'), 'Contents1'),
+                (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+            ]
+        )
 
     def test_Integration_DepthAndSourceOrder_SequesterSink(self):
-        from run_dedupe import main as rd_main
-
-        args = ['--resolve-path-length', '--resolve-source-order',
+        self.perform(
+            [
+                'run_dedupe.py', '--resolve-path-length', '--resolve-source-order',
                 '--sink-sequester', '--sink-sequester-path',
                 self.get_absolute_path(
                     os.path.join('sources', 'sequestration')),
                 self.get_absolute_path('source1'),
                 self.get_absolute_path(os.path.join('sources', 'source2')),
                 self.get_absolute_path(os.path.join('sources', 'source3')),
-                self.get_absolute_path(os.path.join('sources', 'source4'))]
+                self.get_absolute_path(os.path.join('sources', 'source4'))
+            ],
+            [
+                (os.path.join('source1', 'file1'), 'Contents1'),
+                (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source2', 'file4'))), 'Contents1'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source2', 'file5'))), 'Contents2'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source4', 'file9'))), 'Contents1'),
+                (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
+                    os.path.join('sources', 'source4', 'file10'))), 'Contents5')
+            ]
+        )
 
-        with unittest.mock.patch('sys.argv', args):
-            rd_main()
-
-        self.check_exit_state([
-            (os.path.join('source1', 'file1'), 'Contents1'),
-            (os.path.join('source1', 'file2'), 'Contents1'),
-            (os.path.join('source1', 'file3'), 'Contents2'),
-            (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
-            (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
-            (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source2', 'file4'))), 'Contents1'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source2', 'file5'))), 'Contents2'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source4', 'file9'))), 'Contents1'),
-            (join_paths_componentwise(os.path.join('sources', 'sequestration'), self.get_absolute_path(
-                os.path.join('sources', 'source4', 'file10'))), 'Contents5')
-        ])
+    def test_Integration_CopyPattern_DeleteSink(self):
+        self.perform(
+            [
+                'run_dedupe.py', '--resolve-copy-pattern', '--sink-delete',
+                self.get_absolute_path('source1'),
+                self.get_absolute_path(os.path.join('sources', 'source2')),
+                self.get_absolute_path(os.path.join('sources', 'source3')),
+                self.get_absolute_path(os.path.join('sources', 'source4'))
+            ],
+            [
+                (os.path.join('source1', 'file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file4'), 'Contents1'),
+                (os.path.join('sources', 'source2', 'file5'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+                (os.path.join('sources', 'source4', 'file9'), 'Contents1'),
+                (os.path.join('sources', 'source4', 'file10'), 'Contents5')
+            ]
+        )
 
 
 if __name__ == '__main__':

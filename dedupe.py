@@ -6,8 +6,6 @@ import copy
 import re
 import logging
 import sys
-import argparse
-from functools import reduce
 
 
 def join_paths_componentwise(path1, path2):
@@ -93,16 +91,22 @@ class CreationDateDuplicateResolver(AttrBasedDuplicateResolver):
 
 class CopyPatternDuplicateResolver(DuplicateResolver):
     # Resolve by removing files whose names match common "copy" patterns.
-    copy_patterns = [re.compile('^Copy of'), re.compile(
-        '.* copy [0-9]+\\.[a-zA-Z0-9]+$')]
+    copy_patterns = [
+        re.compile('^Copy of'),
+        re.compile('.* copy [0-9]+\\.[a-zA-Z0-9]+$')
+    ]
 
     def resolve(self, flist):
-        def determiner(entry): return reduce(operator.or_,
-                                             [re.match(pattern, entry.path) is not None
-                                              for pattern in self.copy_patterns])
+        originals = []
+        duplicates = []
 
-        return (list(filter(lambda q: not determiner(q), flist)),
-                list(filter(determiner, flist)))
+        for f in flist:
+            if True in [re.match(pattern, os.path.basename(f.path)) is not None for pattern in self.copy_patterns]:
+                duplicates.append(f)
+            else:
+                originals.append(f)
+
+        return originals, duplicates
 
 
 class InteractiveDuplicateResolver(DuplicateResolver):
@@ -149,19 +153,19 @@ class SequesterDuplicateFileSink(object):
     def sink(self, files):
         logger = logging.getLogger(__name__)
         for entry in files:
-           # try:
-            logger.debug('Sequestering duplicate file %s', entry.path)
-            # We don't use os.renames because it has the bizarre side effect
-            # of pruning directories containing the original file, if empty.
+            try:
+                logger.debug('Sequestering duplicate file %s', entry.path)
+                # We don't use os.renames because it has the bizarre side effect
+                # of pruning directories containing the original file, if empty.
 
-            new_path = self.construct_sequestered_path(entry.path)
+                new_path = self.construct_sequestered_path(entry.path)
 
-            if not os.path.exists(os.path.dirname(new_path)):
-                os.makedirs(os.path.dirname(new_path))
-            os.rename(entry.path, new_path)
-           # except Exception as e:
-           #     logger.error(
-           #         'Unable to sequester duplicate file %s: %s', entry.path, e)
+                if not os.path.exists(os.path.dirname(new_path)):
+                    os.makedirs(os.path.dirname(new_path))
+                os.rename(entry.path, new_path)
+            except Exception as e:
+               logger.error(
+                   'Unable to sequester duplicate file %s: %s', entry.path, e)
 
 
 class OutputOnlyDuplicateFileSink(object):

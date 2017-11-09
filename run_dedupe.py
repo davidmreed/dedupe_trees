@@ -25,7 +25,7 @@ sinks = {
 
 class ResolverAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        if not hasattr(namespace, self.dest) or getattr(namespace, self.dest) is None:
+        if (not hasattr(namespace, self.dest)) or getattr(namespace, self.dest) is None:
             setattr(namespace, self.dest, [])
 
         # Determine the human-readable name of the resolver by stripping off the
