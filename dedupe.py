@@ -82,13 +82,6 @@ class ModificationDateDuplicateResolver(AttrBasedDuplicateResolver):
               self).__init__('stat.st_mtime', reverse)
 
 
-class CreationDateDuplicateResolver(AttrBasedDuplicateResolver):
-    # Resolve based on file creation date.
-    def __init__(self, reverse=False):
-        super(CreationDateDuplicateResolver, self).__init__(
-            'stat.st_ctime', reverse)
-
-
 class CopyPatternDuplicateResolver(DuplicateResolver):
     # Resolve by removing files whose names match common "copy" patterns.
     copy_patterns = [

@@ -4,8 +4,10 @@ import unittest
 import unittest.mock
 import tempfile
 import os
+import io
 from dedupe import *
 
+### Dummy/stub objects for testing
 
 class DummyEntry(object):
     def __init__(self, path, digest=None, source=None):
@@ -21,6 +23,12 @@ class DummyEntry(object):
 
     def get_size(self):
         return self.digest
+
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.path == other.path and self.source == other.source
+
+        return False
 
 
 class DummySource(Source):
@@ -50,6 +58,8 @@ class DummyResolver(DuplicateResolver):
         return list(filter(lambda x: x.path != self.key, flist)), list(filter(lambda x: x.path == self.key, flist))
 
 
+### Tests for global utility functions
+
 class test_UtilityFunctions(unittest.TestCase):
     def test_join_paths_componentwise(self):
         # this test assumes a Linux environment
@@ -67,6 +77,10 @@ class test_UtilityFunctions(unittest.TestCase):
                          join_paths_componentwise('test/depth', 'source/file'))
 
 
+### Tests for resolvers (in-memory only, no disk access)
+
+### Tests for base resolver classes
+
 class test_SortBasedDuplicateResolver(unittest.TestCase):
     def setUp(self):
         self.s = SortBasedDuplicateResolver(lambda x: x, False)
@@ -75,7 +89,9 @@ class test_SortBasedDuplicateResolver(unittest.TestCase):
         self.assertEqual(self.s.resolve([]), ([], []))
 
     def test_OneElementList(self):
-        self.assertEqual(self.s.resolve(['test']), (['test'], []))
+        r = self.s.resolve(['test'])
+
+        self.assertEqual(r, (['test'], []))
 
     def test_Sorting(self):
         r = self.s.resolve(['test', 'strings', 'here'])
@@ -100,6 +116,42 @@ class test_SortBasedDuplicateResolver(unittest.TestCase):
         self.assertEqual(r, (['test', 'test', 'test'], []))
 
 
+class test_AttrBasedDuplicateResolver(unittest.TestCase):
+    def setUp(self):
+        self.s = AttrBasedDuplicateResolver('path', False)
+
+    def test_EmptyList(self):
+        self.assertEqual(self.s.resolve([]), ([], []))
+
+    def test_OneElementList(self):
+        r = self.s.resolve([DummyEntry('test')])
+
+        self.assertEqual(r, ([DummyEntry('test')], []))
+
+    def test_Sorting(self):
+        r = self.s.resolve([DummyEntry('test'), DummyEntry('strings'), DummyEntry('here')])
+
+        self.assertEqual(r, ([DummyEntry('here')], [DummyEntry('strings'), DummyEntry('test')]))
+
+    def test_Sorting_Multi(self):
+        r = self.s.resolve([DummyEntry('test'), DummyEntry('here'), DummyEntry('strings'), DummyEntry('here')])
+
+        self.assertEqual(r, ([DummyEntry('here'), DummyEntry('here')], [DummyEntry('strings'), DummyEntry('test')]))
+
+    def test_Sorting_Reverse(self):
+        self.s.reverse = True
+
+        r = self.s.resolve([DummyEntry('test'), DummyEntry('strings'), DummyEntry('here')])
+
+        self.assertEqual(r, ([DummyEntry('test')], [DummyEntry('strings'), DummyEntry('here')]))
+
+    def test_Sorting_Equals(self):
+        r = self.s.resolve([DummyEntry('test'), DummyEntry('test'), DummyEntry('test')])
+
+        self.assertEqual(r, ([DummyEntry('test'), DummyEntry('test'), DummyEntry('test')], []))
+
+### Tests for concrete resolver classes
+
 class test_PathLengthDuplicateResolver(unittest.TestCase):
     def test_PathLengthSorting(self):
         source_one = DummyEntry('test1')
@@ -120,8 +172,8 @@ class test_PathLengthDuplicateResolver(unittest.TestCase):
         # The order of entries within each list isn't guaranteed by this resolver
         r = PathLengthDuplicateResolver().resolve(
             [file_one, file_two, file_three, file_four, file_five])
-        self.assertEqual(set(r[0]), set([file_two, file_four]))
-        self.assertEqual(set(r[1]), set([file_one, file_three, file_five]))
+        self.assertCountEqual([file_two, file_four], r[0])
+        self.assertCountEqual([file_one, file_three, file_five], r[1])
 
 
 class test_CopyPatternDuplicateResolver(unittest.TestCase):
@@ -136,8 +188,50 @@ class test_CopyPatternDuplicateResolver(unittest.TestCase):
         self.assertEqual(r, ([file_two], [file_one, file_three]))
 
 
+class test_ModificationDateDuplicateResolver(unittest.TestCase):
+    pass # FIXME
+
+
+class test_SourceOrderDuplicateResolver(unittest.TestCase):
+    def test_SourceOrder(self):
+        # Using dummy entries, but real sources.
+
+        source_one = Source('test1', 1)
+        source_two = Source('test2', 2)
+        source_three = Source('test3', 3)
+
+        file_one = DummyEntry('file1', source=source_one)
+        file_two = DummyEntry('file2', source=source_two)
+        file_three = DummyEntry('file3', source=source_three)
+
+        r = SourceOrderDuplicateResolver().resolve(
+            [file_three, file_two, file_one])
+        self.assertEqual(r, ([file_one], [file_two, file_three]))
+
+
+### Tests for operational classes
+
 class test_FileEntry(unittest.TestCase):
-    pass
+    def test_FileEntry(self):
+        contents = 'TEST_STRING'
+        source = DummySource('test')
+        self.temp_dir = tempfile.mkdtemp()
+
+        (handle, path) = tempfile.mkstemp(dir=self.temp_dir)
+        with os.fdopen(handle, mode='w') as f:
+            f.write(contents)
+
+        entry = FileEntry(path, source)
+
+        self.assertEqual(path, entry.path)
+        self.assertEqual(source, entry.source)
+        self.assertEqual(os.stat(path), entry.stat)
+        self.assertEqual(os.stat(path).st_size, entry.get_size())
+
+        h = hashlib.sha512()
+        h.update(contents.encode('utf-8'))
+
+        self.assertEqual(h.hexdigest(), entry.get_digest())
 
 
 class test_FileCatalog(unittest.TestCase):
@@ -158,7 +252,7 @@ class test_FileCatalog(unittest.TestCase):
 
 
 class test_Source(unittest.TestCase):
-    pass
+    pass #FIXME
 
 
 class test_DeduplicateOperation(unittest.TestCase):
@@ -272,10 +366,137 @@ class test_FileSystemTestBase(object):
         os.rmdir(self.temp_dir)
 
 
-class test_DeleteDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase):
+### Tests for resolvers (individual, with real entry and source objects but no sink)
+
+class test_FS_PathLengthDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', 'file1'), 'Contents1'),
+            (os.path.join('source1', 'subdir1', 'file2'), 'Contents1'),
+            (os.path.join('source2', 'file3'), 'Contents2'),
+            (os.path.join('sources', 'source3', 'subdir', 'file4'), 'Contents2')
+        ]
+        super(test_FS_PathLengthDuplicateResolver, self).setUp()
+
+    def test_FS_PathLengthDuplicateResolver_OneSource(self):
+        fc = FileCatalog(lambda x: x.get_digest())
+        s = Source(self.get_absolute_path('source1'), 1)
+
+        s.walk(fc)
+
+        self.assertEqual(1, len(fc.get_groups()))
+
+        (originals, duplicates) = PathLengthDuplicateResolver().resolve(fc.get_groups()[0])
+
+        self.assertEqual(1, len(originals))
+        self.assertEqual(self.get_absolute_path(os.path.join('source1', 'file1')), originals[0].path)
+        self.assertEqual(1, len(duplicates))
+        self.assertEqual(self.get_absolute_path(os.path.join('source1', 'subdir1', 'file2')), duplicates[0].path)
+
+    def test_FS_PathLengthDuplicateResolver_TwoSources(self):
+        fc = FileCatalog(lambda x: x.get_digest())
+        s_one = Source(self.get_absolute_path('source2'), 1)
+        s_two = Source(self.get_absolute_path(os.path.join('sources', 'source3')), 2)
+
+        s_one.walk(fc)
+        s_two.walk(fc)
+
+        self.assertEqual(1, len(fc.get_groups()))
+
+        (originals, duplicates) = PathLengthDuplicateResolver().resolve(fc.get_groups()[0])
+
+        self.assertEqual(1, len(originals))
+        self.assertEqual(self.get_absolute_path(os.path.join('source2', 'file3')), originals[0].path)
+        self.assertEqual(1, len(duplicates))
+        self.assertEqual(self.get_absolute_path(os.path.join('sources', 'source3', 'subdir', 'file4')), duplicates[0].path)
+
+
+class test_FS_SourceOrderDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', 'file1'), 'Contents1'),
+            (os.path.join('source2', 'file2'), 'Contents1')
+        ]
+        super(test_FS_SourceOrderDuplicateResolver, self).setUp()
+
+    def test_FS_SourceOrderDuplicateResolver(self):
+        fc = FileCatalog(lambda x: x.get_digest())
+        s_one = Source(self.get_absolute_path('source1'), 1)
+        s_two = Source(self.get_absolute_path('source2'), 2)
+
+        s_one.walk(fc)
+        s_two.walk(fc)
+
+        self.assertEqual(1, len(fc.get_groups()))
+
+        (originals, duplicates) = SourceOrderDuplicateResolver().resolve(fc.get_groups()[0])
+
+        self.assertEqual(1, len(originals))
+        self.assertEqual(self.get_absolute_path(os.path.join('source1', 'file1')), originals[0].path)
+        self.assertEqual(1, len(duplicates))
+        self.assertEqual(self.get_absolute_path(os.path.join('source2', 'file2')), duplicates[0].path)
+
+
+class test_FS_ModificationDateDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', 'file1'), 'Contents1'),
+            (os.path.join('source2', 'file2'), 'Contents1')
+        ]
+        super(test_FS_ModificationDateDuplicateResolver, self).setUp()
+
+        os.utime(self.get_absolute_path(os.path.join('source1', 'file1')), (10000, 10000))
+        os.utime(self.get_absolute_path(os.path.join('source1', 'file1')), (20000, 20000))
+
+    def test_FS_ModificationDateDuplicateResolver(self):
+        fc = FileCatalog(lambda x: x.get_digest())
+        s_one = Source(self.get_absolute_path('source1'), 1)
+        s_two = Source(self.get_absolute_path('source2'), 2)
+
+        s_one.walk(fc)
+        s_two.walk(fc)
+
+        self.assertEqual(1, len(fc.get_groups()))
+
+        (originals, duplicates) = ModificationDateDuplicateResolver().resolve(fc.get_groups()[0])
+
+        self.assertEqual(1, len(originals))
+        self.assertEqual(self.get_absolute_path(os.path.join('source1', 'file1')), originals[0].path)
+        self.assertEqual(1, len(duplicates))
+        self.assertEqual(self.get_absolute_path(os.path.join('source2', 'file2')), duplicates[0].path)
+
+
+class test_FS_CopyPatternDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', 'file1'), 'Contents1'),
+            (os.path.join('source2', 'Copy of file1'), 'Contents1')
+        ]
+        super(test_FS_CopyPatternDuplicateResolver, self).setUp()
+
+    def test_FS_CopyPatternDuplicateResolver(self):
+        fc = FileCatalog(lambda x: x.get_digest())
+        s_one = Source(self.get_absolute_path('source1'), 1)
+        s_two = Source(self.get_absolute_path('source2'), 2)
+
+        s_one.walk(fc)
+        s_two.walk(fc)
+
+        self.assertEqual(1, len(fc.get_groups()))
+
+        (originals, duplicates) = SourceOrderDuplicateResolver().resolve(fc.get_groups()[0])
+
+        self.assertEqual(1, len(originals))
+        self.assertEqual(self.get_absolute_path(os.path.join('source1', 'file1')), originals[0].path)
+        self.assertEqual(1, len(duplicates))
+        self.assertEqual(self.get_absolute_path(os.path.join('source2', 'Copy of file1')), duplicates[0].path)
+
+### Tests for sinks (with file system access)
+
+class test_FS_DeleteDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
         self.entry_state = [('test ' + str(i), None) for i in range(1, 10)]
-        super(test_DeleteDuplicateFileSink, self).setUp()
+        super(test_FS_DeleteDuplicateFileSink, self).setUp()
 
     def test_Deletion(self):
         s = DeleteDuplicateFileSink()
@@ -291,11 +512,11 @@ class test_DeleteDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase):
         self.check_exit_state([])
 
 
-class test_SequesterDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase):
+class test_FS_SequesterDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
         self.entry_state = [
             (os.path.join('source', 'test ' + str(i)), None) for i in range(1, 10)]
-        super(test_SequesterDuplicateFileSink, self).setUp()
+        super(test_FS_SequesterDuplicateFileSink, self).setUp()
 
     def test_Sequestration(self):
         s = SequesterDuplicateFileSink(self.get_absolute_path('sink'))
@@ -306,6 +527,25 @@ class test_SequesterDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase
         self.check_exit_state([(s.construct_sequestered_path(self.get_absolute_path(p))[
                               len(self.temp_dir):], None) for (p, c) in self.entry_state])
 
+
+class test_FS_OutputOnlyDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [('test ' + str(i), None) for i in range(1, 10)]
+        super(test_FS_OutputOnlyDuplicateFileSink, self).setUp()
+
+    def test_OutputOnly(self):
+        o = io.StringIO()
+        s = OutputOnlyDuplicateFileSink(output_file=o)
+
+        s.sink([DummyEntry(self.get_absolute_path(f))
+                for (f, c) in self.entry_state])
+
+        self.assertEqual('\n'.join([self.get_absolute_path(f)
+                for (f, c) in self.entry_state]).strip(), o.getvalue().strip())
+
+        self.check_exit_state(self.entry_state)
+
+### Integration tests (executing against the disk with groups of resolvers and a sink)
 
 class test_Integration(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
@@ -386,6 +626,8 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
             ]
         )
 
+
+### Command-line integration tests (pass real parameter sets to main and execute against disk)
 
 class test_CommandLine_Integration(test_Integration):
     def perform(self, args, exit_states):

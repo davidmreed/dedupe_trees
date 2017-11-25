@@ -8,7 +8,6 @@ resolvers = {
     'path-length': PathLengthDuplicateResolver,
     'source-order': SourceOrderDuplicateResolver,
     'mod-date': ModificationDateDuplicateResolver,
-    'create-date': CreationDateDuplicateResolver,
     'copy-pattern': CopyPatternDuplicateResolver,
     'interactive': InteractiveDuplicateResolver
 }
