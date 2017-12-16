@@ -1,0 +1,29 @@
+version: 2 
+jobs:
+    build:
+        docker:
+            - image: circleci/python:3.6.1
+        steps:
+            - checkout
+            - restore_cache:
+                key: testing_deps
+            - run:
+                name: Prepare Environment
+                command: |
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install coverage codecov pytest
+            - save_cache:
+                key: testing_deps
+                paths:
+                    - "venv"
+            - run:
+                name: Run Tests
+                command: |
+                    . venv/bin/activate
+                    mkdir -p test-reports
+                    pytest --junitxml=test-reports/junit.xml 
+                    coverage run dedupe_test.py 
+                    codecov
+            - store_test_results:
+                path: test-reports

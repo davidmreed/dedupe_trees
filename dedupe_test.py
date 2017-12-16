@@ -239,15 +239,15 @@ class test_FileCatalog(unittest.TestCase):
         c = FileCatalog(lambda x: x)
 
         c.add_entry('test')
-        self.assertEquals(c.get_groups(), [])
+        self.assertEqual(c.get_groups(), [])
 
         c.add_entry('test')
-        self.assertEquals(c.get_groups(), [['test', 'test']])
+        self.assertEqual(c.get_groups(), [['test', 'test']])
 
         c.add_entry('foo')
-        self.assertEquals(c.get_groups(), [['test', 'test']])
+        self.assertEqual(c.get_groups(), [['test', 'test']])
         c.add_entry('foo')
-        self.assertEquals(sorted(c.get_groups(), key=operator.itemgetter(0)), [
+        self.assertEqual(sorted(c.get_groups(), key=operator.itemgetter(0)), [
                           ['foo', 'foo'], ['test', 'test']])
 
 
@@ -271,24 +271,24 @@ class test_DeduplicateOperation(unittest.TestCase):
         s = DummySink()
         o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [r1], s)
         o.run()
-        self.assertEquals(s.sunk, [f1])
+        self.assertEqual(s.sunk, [f1])
 
         s = DummySink()
         o = DeduplicateOperation(
             [DummySource([f1, f2, f3, f4, f5])], [r1, r2], s)
         o.run()
-        self.assertEquals(s.sunk, [f1, f2])
+        self.assertEqual(s.sunk, [f1, f2])
 
         s = DummySink()
         o = DeduplicateOperation(
             [DummySource([f1, f2, f3, f4, f5])], [r1, r2, r3], s)
         o.run()
-        self.assertEquals(s.sunk, [f1, f2, f3])
+        self.assertEqual(s.sunk, [f1, f2, f3])
 
         s = DummySink()
         o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [], s)
         o.run()
-        self.assertEquals(s.sunk, [])
+        self.assertEqual(s.sunk, [])
 
 
 # Below are tests that directly touch the filesystem, all of which inherit

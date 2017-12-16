@@ -77,7 +77,7 @@ def main():
     a = parser.parse_args()
 
     logging.getLogger('dedupe').setLevel(verbosity_levels[a.verbosity])
-    logging.getLogger('dedupe').addHandler(logging.StreamHandler())
+    logging.getLogger('dedupe').handlers[:] = [logging.StreamHandler()]
 
     # Create and number sources.
     sources = []
