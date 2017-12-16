@@ -271,13 +271,11 @@ class DeduplicateOperation(object):
                              '\n'.join(map(operator.attrgetter('path'), originals)))
 
                 if len(originals) > 0:
-                    # The resolver returned more than one original. Sink the
-                    # duplicates and proceed to the next resolver.
                     to_sink.extend(duplicates)
-                elif len(originals) == 1:
-                    # Narrowed to a single original file. Stop running resolvers
-                    # on this group.
-                    break
+                    if len(originals) == 1:
+                        # Narrowed to a single original file. Stop running resolvers
+                        # on this group.
+                        break
                 else:
                     # If the resolver identified all of the files as duplicates,
                     # reset and punt to the next resolver.
