@@ -1,5 +1,8 @@
 # dedupe.py
 
+[![CircleCI](https://circleci.com/gh/davidmreed/dedupe.py.svg?style=svg)](https://circleci.com/gh/davidmreed/dedupe.py)
+[![codecov](https://codecov.io/gh/davidmreed/dedupe.py/branch/master/graph/badge.svg)](https://codecov.io/gh/davidmreed/dedupe.py)
+
 This tool provides functionality for scanning multiple file hierarchies for duplicate files
 occurring at any depth and configurably managing these duplicates. `dedupe.py` is intended to support
 merging large, structurally divergent hierarchies, such as overlapping photo collections archived in one
