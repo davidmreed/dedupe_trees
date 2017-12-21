@@ -105,14 +105,14 @@ class CopyPatternDuplicateResolver(DuplicateResolver):
 class InteractiveDuplicateResolver(DuplicateResolver):
     # Allow the user to interactively resolve duplicate files.
     def resolve(self, flist):
-        for i in range(len(flist)):
-            print('%2d\t%s\n' % (i, flist[i]))
+        for i in range(1, len(flist)):
+            print('%2d\t%s\n' % (i, flist[i - 1]))
 
         d = int(input('Enter file to retain: '))
 
         dupes = copy.copy(flist)
-        dupes.pop(d)
-        return [flist[d]], dupes
+        orig = dupes.pop(d - 1)
+        return [orig], dupes
 
 
 class DuplicateFileSink(object):

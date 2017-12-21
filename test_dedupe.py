@@ -199,7 +199,23 @@ class test_CopyPatternDuplicateResolver(unittest.TestCase):
 
 
 class test_ModificationDateDuplicateResolver(unittest.TestCase):
-    pass # FIXME
+    def test_ModificationDateDuplicateResolver(self):
+        file_one = DummyEntry('test1')
+        file_two = DummyEntry('test2')
+        file_three = DummyEntry('test3')
+
+        file_one.stat = DummyEntry('foo')
+        setattr(file_one.stat, 'st_mtime', 3)
+        file_two.stat = DummyEntry('foo')
+        setattr(file_two.stat, 'st_mtime', 2)
+        file_three.stat = DummyEntry('foo')
+        setattr(file_three.stat, 'st_mtime', 1)
+
+        (originals, duplicates) = ModificationDateDuplicateResolver().resolve(
+            [file_one, file_two, file_three])
+
+        self.assertCountEqual(originals, [file_three])
+        self.assertCountEqual(duplicates, [file_one, file_two])
 
 
 class test_SourceOrderDuplicateResolver(unittest.TestCase):
@@ -220,7 +236,17 @@ class test_SourceOrderDuplicateResolver(unittest.TestCase):
 
 
 class test_InteractiveDuplicateResolver(unittest.TestCase):
-    pass #FIXME
+    def test_InteractiveDuplicateResolver(self):
+        file_one = DummyEntry('File 1')
+        file_two = DummyEntry('File 2')
+        file_three = DummyEntry('File 3')
+
+        with unittest.mock.patch('builtins.input', return_value='2'):
+            r = InteractiveDuplicateResolver().resolve(
+                [file_one, file_two, file_three])
+
+            self.assertEqual(r, ([file_two], [file_one, file_three]))
+
 
 ### Tests for operational classes
 
@@ -264,47 +290,58 @@ class test_FileCatalog(unittest.TestCase):
                           ['foo', 'foo'], ['test', 'test']])
 
 
-class test_Source(unittest.TestCase):
-    pass #FIXME
-
-
 class test_DeduplicateOperation(unittest.TestCase):
+    def setUp(self):
+        self.f1 = DummyEntry('test1', digest='test')
+        self.f2 = DummyEntry('test2', digest='test')
+        self.f3 = DummyEntry('test3', digest='test')
+        self.f4 = DummyEntry('test4', digest='test')
+        self.f5 = DummyEntry('test5', digest='test5')
+        self.so = DummySource([self.f1, self.f2, self.f3, self.f4, self.f5])
+        self.r1 = DummyResolver('test1')
+        self.r2 = DummyResolver('test2')
+        self.r3 = DummyResolver('test3')
+
+    def perform(self, resolvers):
+        s = DummySink()
+        o = DeduplicateOperation([self.so], resolvers, s)
+        o.run()
+        return s.sunk
+
+    def test_DDO_Real_Resolvers(self):
+        self.assertEqual([self.f1], self.perform([self.r1]))
+        self.assertEqual([self.f1, self.f2], self.perform([self.r1, self.r2]))
+        self.assertEqual([self.f1, self.f2, self.f3], self.perform([self.r1, self.r2, self.r3]))
+        self.assertEqual([], self.perform([]))
+
     def test_DDO_Devils(self):
-        pass #FIXME
+        # Run exactly the same tests, but inserting "devil" resolvers, which always
+        # return either all originals or all duplicates.
+        # Should have no effect on the results.
+        devil_duplicates = DevilDuplicateResolver()
+        devil_originals = DevilOriginalDuplicateResolver()
 
-    def test_DDO(self):
-        r1 = DummyResolver('test1')
-        r2 = DummyResolver('test2')
-        r3 = DummyResolver('test3')
-        f1 = DummyEntry('test1', digest='test')
-        f2 = DummyEntry('test2', digest='test')
-        f3 = DummyEntry('test3', digest='test')
-        f4 = DummyEntry('test4', digest='test')
-        f5 = DummyEntry('test5', digest='test5')
-        rs = [r1, r2, r3]
-        so = DummySource([f1, f2, f3, f4])
+        file_lists = [
+            [self.f1],
+            [self.f1, self.f2],
+            [self.f1, self.f2, self.f3],
+            []
+        ]
 
-        s = DummySink()
-        o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [r1], s)
-        o.run()
-        self.assertEqual(s.sunk, [f1])
+        resolver_lists = [
+            [self.r1],
+            [self.r1, self.r2],
+            [self.r1, self.r2, self.r3],
+            []
+        ]
 
-        s = DummySink()
-        o = DeduplicateOperation(
-            [DummySource([f1, f2, f3, f4, f5])], [r1, r2], s)
-        o.run()
-        self.assertEqual(s.sunk, [f1, f2])
+        for (fl, rl) in zip(file_lists, resolver_lists):
+            # Perform the test, inserting each devil resolver at each possible location
+            # and asserting correct behavior each time.
 
-        s = DummySink()
-        o = DeduplicateOperation(
-            [DummySource([f1, f2, f3, f4, f5])], [r1, r2, r3], s)
-        o.run()
-        self.assertEqual(s.sunk, [f1, f2, f3])
-
-        s = DummySink()
-        o = DeduplicateOperation([DummySource([f1, f2, f3, f4, f5])], [], s)
-        o.run()
-        self.assertEqual(s.sunk, [])
+            for i in range(0, len(rl)):
+                self.assertEqual(fl, self.perform(rl[:i] + [devil_duplicates] + rl[i:]))
+                self.assertEqual(fl, self.perform(rl[:i] + [devil_originals] + rl[i:]))
 
 
 # Below are tests that directly touch the filesystem, all of which inherit
@@ -385,8 +422,29 @@ class test_FileSystemTestBase(object):
 ### Tests for resolvers (individual, with real entry and source objects but no sink)
 
 class test_FS_InteractiveDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
-    pass #FIXME
-    
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', 'file1'), 'Contents1'),
+            (os.path.join('source1', 'subdir1', 'file2'), 'Contents1')
+        ]
+        super(test_FS_InteractiveDuplicateResolver, self).setUp()
+
+    def test_FS_InteractiveDuplicateResolver(self):
+        fc = FileCatalog(lambda x: x.get_digest())
+        s_one = Source(self.get_absolute_path('source1'), 1)
+
+        s_one.walk(fc)
+
+        self.assertEqual(1, len(fc.get_groups()))
+        #FIXME: also assert output
+        with unittest.mock.patch('builtins.input', return_value='2'):
+            (originals, duplicates) = InteractiveDuplicateResolver().resolve(fc.get_groups()[0])
+
+        self.assertEqual(1, len(originals))
+        self.assertEqual(1, len(duplicates))
+        self.assertEqual(self.get_absolute_path(os.path.join('source1', 'file1')), duplicates[0].path)
+        self.assertEqual(self.get_absolute_path(os.path.join('source1', 'subdir1', 'file2')), originals[0].path)
+
 
 class test_FS_PathLengthDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
@@ -646,9 +704,6 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
             ]
         )
     
-    def test_Integration_DevilResolvers(self):
-        pass #FIXME
-
 
 ### Command-line integration tests (pass real parameter sets to main and execute against disk)
 
