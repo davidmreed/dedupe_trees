@@ -57,6 +57,16 @@ class DummyResolver(DuplicateResolver):
     def resolve(self, flist):
         return list(filter(lambda x: x.path != self.key, flist)), list(filter(lambda x: x.path == self.key, flist))
 
+class DevilDuplicateResolver(DuplicateResolver):
+    # Returns all files as duplicates
+    def resolve(self, flist):
+        return [], flist
+
+class DevilOriginalDuplicateResolver(DuplicateResolver):
+    # Returns all files as originals
+    def resolve(self, flist):
+        return flist, []
+
 
 ### Tests for global utility functions
 
@@ -209,6 +219,9 @@ class test_SourceOrderDuplicateResolver(unittest.TestCase):
         self.assertEqual(r, ([file_one], [file_two, file_three]))
 
 
+class test_InteractiveDuplicateResolver(unittest.TestCase):
+    pass #FIXME
+
 ### Tests for operational classes
 
 class test_FileEntry(unittest.TestCase):
@@ -256,6 +269,9 @@ class test_Source(unittest.TestCase):
 
 
 class test_DeduplicateOperation(unittest.TestCase):
+    def test_DDO_Devils(self):
+        pass #FIXME
+
     def test_DDO(self):
         r1 = DummyResolver('test1')
         r2 = DummyResolver('test2')
@@ -367,6 +383,10 @@ class test_FileSystemTestBase(object):
 
 
 ### Tests for resolvers (individual, with real entry and source objects but no sink)
+
+class test_FS_InteractiveDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
+    pass #FIXME
+    
 
 class test_FS_PathLengthDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
@@ -625,16 +645,23 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
                 (os.path.join('sources', 'source4', 'file10'), 'Contents5')
             ]
         )
+    
+    def test_Integration_DevilResolvers(self):
+        pass #FIXME
 
 
 ### Command-line integration tests (pass real parameter sets to main and execute against disk)
 
 class test_CommandLine_Integration(test_Integration):
     def perform(self, args, exit_states):
-        from run_dedupe import main as rd_main
+        import importlib 
+
+        spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
 
         with unittest.mock.patch('sys.argv', args):
-            rd_main()
+            module.main()
 
         self.check_exit_state(exit_states)
 
@@ -708,6 +735,31 @@ class test_CommandLine_Integration(test_Integration):
                 (os.path.join('sources', 'source4', 'file10'), 'Contents5')
             ]
         )
+
+class test_ResolverAction(unittest.TestCase):
+    def test_ResolverAction(self):
+        import importlib 
+        import argparse
+
+        spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        r = module.ResolverAction([], 'resolvers')
+        n = argparse.Namespace()
+
+        r(None, n, ['asc'], '--resolve-copy-pattern')
+
+        self.assertEqual(1, len(getattr(n, r.dest)))
+        resolvers = n.resolvers
+        self.assertIsInstance(resolvers[0], CopyPatternDuplicateResolver)
+        self.assertEqual(False, resolvers[0].reverse)
+
+        r(None, n, ['desc'], '--resolve-source-order')
+        self.assertEqual(2, len(getattr(n, r.dest)))
+        resolvers = n.resolvers
+        self.assertIsInstance(resolvers[1], SourceOrderDuplicateResolver)
+        self.assertEqual(True, resolvers[1].reverse)
 
 
 if __name__ == '__main__':

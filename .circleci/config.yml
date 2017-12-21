@@ -23,7 +23,7 @@ jobs:
                     . venv/bin/activate
                     mkdir -p test-reports
                     pytest --junitxml=test-reports/junit.xml 
-                    coverage run test.py 
+                    coverage run test_dedupe.py 
                     codecov
             - store_test_results:
                 path: test-reports

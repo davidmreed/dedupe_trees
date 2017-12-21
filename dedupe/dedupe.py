@@ -21,7 +21,7 @@ class DuplicateResolver(object):
         self.reverse = reverse
 
     def resolve(self, flist):
-        return flist, []
+        raise NotImplementedError
 
 
 class SortBasedDuplicateResolver(DuplicateResolver):
