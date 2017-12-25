@@ -17,7 +17,7 @@ sinks = {
     'sequester': {'class': SequesterDuplicateFileSink,
                   'args': [{'name': 'path', 'type': str, 'nargs': 1}]},
     'output-only': {'class': OutputOnlyDuplicateFileSink,
-                    'args': [{'name': 'output-file', 'type': argparse.FileType,
+                    'args': [{'name': 'path', 'type': argparse.FileType('w'),
                               'nargs': 1, 'default': sys.stdout}]}
 }
 
@@ -88,9 +88,11 @@ def main():
     # Create sink, pulling out applicable parameters.
     params = {}
     for arg in sinks[a.sink_class]['args']:
-        if hasattr(a, 'sink-arguments-' + a.sink_class + '-' + arg['name']):
-            params[arg['name']] = getattr(
-                a, 'sink-arguments-' + a.sink_class + '-' + arg['name'])[0]
+        this_arg_name = 'sink-arguments-' + a.sink_class + '-' + arg['name'] 
+        if hasattr(a, this_arg_name):
+            this_arg = getattr(a, this_arg_name)
+            if this_arg is not None:
+                params[arg['name']] = this_arg[0]
 
     sink = sinks[a.sink_class]['class'](**params)
 

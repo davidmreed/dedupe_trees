@@ -105,14 +105,14 @@ class CopyPatternDuplicateResolver(DuplicateResolver):
 class InteractiveDuplicateResolver(DuplicateResolver):
     # Allow the user to interactively resolve duplicate files.
     def resolve(self, flist):
-        for i in range(1, len(flist)):
-            print('%2d\t%s\n' % (i, flist[i - 1]))
+        l = sorted(flist, key=operator.attrgetter('path'))
+        for i in range(0, len(l)):
+            print('%2d\t%s' % (i + 1, l[i].path))
 
         d = int(input('Enter file to retain: '))
 
-        dupes = copy.copy(flist)
-        orig = dupes.pop(d - 1)
-        return [orig], dupes
+        orig = l.pop(d - 1)
+        return [orig], l
 
 
 class DuplicateFileSink(object):
@@ -164,13 +164,13 @@ class SequesterDuplicateFileSink(object):
 class OutputOnlyDuplicateFileSink(object):
     # Only output the names of duplicate files.
 
-    def __init__(self, output_file=sys.stdout):
-        self.output_file = output_file
+    def __init__(self, path=sys.stdout):
+        self.output_file = path
 
     def sink(self, files):
         for entry in files:
             self.output_file.write(entry.path + '\n')
-
+    
 
 class FileEntry(object):
     def __init__(self, fpath, fsource):

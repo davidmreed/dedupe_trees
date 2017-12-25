@@ -240,13 +240,19 @@ class test_InteractiveDuplicateResolver(unittest.TestCase):
         file_one = DummyEntry('File 1')
         file_two = DummyEntry('File 2')
         file_three = DummyEntry('File 3')
+        o = io.StringIO()
 
-        with unittest.mock.patch('builtins.input', return_value='2'):
-            r = InteractiveDuplicateResolver().resolve(
-                [file_one, file_two, file_three])
+        with unittest.mock.patch('sys.stdout', o):
+            with unittest.mock.patch('builtins.input', return_value='2'):
+                r = InteractiveDuplicateResolver().resolve(
+                    [file_one, file_two, file_three])
 
-            self.assertEqual(r, ([file_two], [file_one, file_three]))
-
+                self.assertEqual(r, ([file_two], [file_one, file_three]))
+            
+            self.assertTrue('File 1' in o.getvalue())
+            self.assertTrue('File 2' in o.getvalue())
+            self.assertTrue('File 3' in o.getvalue())
+        
 
 ### Tests for operational classes
 
@@ -436,7 +442,7 @@ class test_FS_InteractiveDuplicateResolver(test_FileSystemTestBase, unittest.Tes
         s_one.walk(fc)
 
         self.assertEqual(1, len(fc.get_groups()))
-        #FIXME: also assert output
+
         with unittest.mock.patch('builtins.input', return_value='2'):
             (originals, duplicates) = InteractiveDuplicateResolver().resolve(fc.get_groups()[0])
 
@@ -613,7 +619,7 @@ class test_FS_OutputOnlyDuplicateFileSink(test_FileSystemTestBase, unittest.Test
 
     def test_OutputOnly(self):
         o = io.StringIO()
-        s = OutputOnlyDuplicateFileSink(output_file=o)
+        s = OutputOnlyDuplicateFileSink(path=o)
 
         s.sink([DummyEntry(self.get_absolute_path(f))
                 for (f, c) in self.entry_state])
@@ -654,6 +660,26 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
         o.run()
 
         self.check_exit_state(exit_states)
+
+    def test_Integration_Interactive_OutputSink(self):
+        o = io.StringIO()
+        s = OutputOnlyDuplicateFileSink(path=o)
+
+        # Group 1 is `Contents1` files. Group 2 is `Contents2` files. Group 3 is `Contents5` files.
+        with unittest.mock.patch('builtins.input', side_effect=['2', '2', '2']):
+            self.perform([InteractiveDuplicateResolver()], s, self.entry_state)
+
+        to_be_sunk = [
+            (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+            (os.path.join('source1', 'file3'), 'Contents2'),
+            (os.path.join('sources', 'source2', 'file4'), 'Contents1'),
+            (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+            (os.path.join('sources', 'source4', 'file9'), 'Contents1')
+        ]
+
+        self.assertCountEqual([self.get_absolute_path(f)
+            for (f, c) in to_be_sunk], o.getvalue().strip().split('\n'))
+
 
     def test_Integration_DepthAndSourceOrder_DeleteSink(self):
         self.perform([PathLengthDuplicateResolver(), SourceOrderDuplicateResolver()], DeleteDuplicateFileSink(),
@@ -710,6 +736,7 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
 class test_CommandLine_Integration(test_Integration):
     def perform(self, args, exit_states):
         import importlib 
+        import importlib.util
 
         spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
         module = importlib.util.module_from_spec(spec)
@@ -719,6 +746,39 @@ class test_CommandLine_Integration(test_Integration):
             module.main()
 
         self.check_exit_state(exit_states)
+
+    def test_Integration_Interactive_OutputSink(self):
+        # Group 1 is `Contents1` files. Group 2 is `Contents2` files. Group 3 is `Contents5` files.
+        to_be_sunk = [
+            self.get_absolute_path(os.path.join('source1', 'Copy of file1')),
+            self.get_absolute_path(os.path.join('sources', 'source2', 'file4')),
+            self.get_absolute_path(os.path.join('sources', 'source4', 'file9')),
+            self.get_absolute_path(os.path.join('sources', 'source3', 'file8')),
+            self.get_absolute_path(os.path.join('source1', 'file3'))
+        ]
+
+        with unittest.mock.patch('builtins.input', side_effect=['2', '2', '2']):
+            out_state = self.entry_state
+            out_state.append(('output.txt', None))
+            self.perform(
+                [
+                    'run_dedupe.py', '--resolve-interactive', '--sink-output-only',
+                    '--sink-output-only-path', self.get_absolute_path('output.txt'),
+                    self.get_absolute_path('source1'),
+                    self.get_absolute_path(os.path.join('sources', 'source2')),
+                    self.get_absolute_path(os.path.join('sources', 'source3')),
+                    self.get_absolute_path(os.path.join('sources', 'source4'))
+                ],
+                out_state
+            )
+        
+        # Check the contents of the output file (we supply None above to suppress check, 
+        # because filename ordering isn't deterministic)
+        with open(self.get_absolute_path('output.txt'), mode='r') as this_file:
+            contents = this_file.read()
+
+        self.assertCountEqual(to_be_sunk, filter(lambda x: len(x) > 0, contents.split('\n')))
+
 
     def test_Integration_DepthAndSourceOrder_DeleteSink(self):
         self.perform(
