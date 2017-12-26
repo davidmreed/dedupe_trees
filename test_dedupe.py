@@ -57,10 +57,19 @@ class DummyResolver(DuplicateResolver):
     def resolve(self, flist):
         return list(filter(lambda x: x.path != self.key, flist)), list(filter(lambda x: x.path == self.key, flist))
 
+
+class DummyCatalog(FileCatalog):
+    def __init__(self):
+        self.entries = []
+
+    def add_entry(self, entry):
+        self.entries.append(entry)
+
 class DevilDuplicateResolver(DuplicateResolver):
     # Returns all files as duplicates
     def resolve(self, flist):
         return [], flist
+
 
 class DevilOriginalDuplicateResolver(DuplicateResolver):
     # Returns all files as originals
@@ -424,6 +433,51 @@ class test_FileSystemTestBase(object):
 
         os.rmdir(self.temp_dir)
 
+### Tests for core classes, with filesystem access
+
+class test_FS_FileEntry(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', 'file1'), 'Contents1')
+        ]
+        super(test_FS_FileEntry, self).setUp()
+
+    def test_FS_FileEntry(self):
+        path = self.get_absolute_path(self.entry_state[0][0])
+        fe = FileEntry(path, None)
+
+        self.assertEqual(fe.path, path)
+        self.assertEqual(os.stat(path).st_size, fe.get_size())
+        self.assertEqual(None, fe.digest)
+        # The double-assert exercises the caching function
+        self.assertEqual(hashlib.sha512('Contents1'.encode('utf-8')).hexdigest(),
+                        fe.get_digest())
+        self.assertEqual(hashlib.sha512('Contents1'.encode('utf-8')).hexdigest(),
+                        fe.get_digest())
+        
+
+
+class test_FS_Source(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', 'file1'), 'Contents1'),
+            (os.path.join('source1', 'subdir1', 'file2'), 'Contents1'),
+            (os.path.join('source1', 'file3'), 'Contents2'),
+            (os.path.join('source1', 'subdir2', 'subdir', 'file4'), 'Contents2')
+        ]
+        super(test_FS_Source, self).setUp()
+    
+    def test_FS_Source(self):
+        s = Source(self.get_absolute_path('source1'), 2)
+        f = DummyCatalog()
+
+        self.assertEqual(2, s.order)
+        s.walk(f)
+
+        self.assertCountEqual(
+            [self.get_absolute_path(f) for (f, c) in self.entry_state],
+            [fe.path for fe in f.entries]
+        )
 
 ### Tests for resolvers (individual, with real entry and source objects but no sink)
 
