@@ -11,3 +11,5 @@ exclude_lines =
 ignore_errors = True
 omit =
     *_test.py
+    test_*.py
+    test/*.py
