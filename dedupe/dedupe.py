@@ -86,7 +86,9 @@ class CopyPatternDuplicateResolver(DuplicateResolver):
     # Resolve by removing files whose names match common "copy" patterns.
     copy_patterns = [
         re.compile('^Copy of'),
-        re.compile('.* copy [0-9]+\\.[a-zA-Z0-9]+$')
+        re.compile('.* copy [0-9]+\\.[a-zA-Z0-9]+$'),
+        re.compile('^\\._.+'),
+        re.compile('^[0-9]_.+')
     ]
 
     def resolve(self, flist):
@@ -210,7 +212,8 @@ class FileCatalog(object):
         self.idfunc = idfunc
 
     def add_entry(self, entry):
-        self.store.setdefault(self.idfunc(entry), []).append(entry)
+        if self.idfunc(entry) is not None:
+            self.store.setdefault(self.idfunc(entry), []).append(entry)
 
     def get_groups(self):
         return [self.store[key] for key in self.store.keys() if len(self.store[key]) > 1]
@@ -235,7 +238,7 @@ class DeduplicateOperation(object):
         self.sink = sink
 
     def run(self):
-        size_catalog = FileCatalog(lambda entry: entry.get_size())
+        size_catalog = FileCatalog(lambda entry: entry.get_size() if entry.get_size() != 0 else None)
         logger = logging.getLogger(__name__)
 
         # Initial pass through the file tree. Identify candidate duplicate

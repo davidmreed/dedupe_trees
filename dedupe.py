@@ -83,7 +83,7 @@ def main():
     sources = []
 
     for i in range(len(a.source_dir)):
-        sources.append(Source(a.source_dir[i], i))
+        sources.append(Source(a.source_dir[i], i+1))
 
     # Create sink, pulling out applicable parameters.
     params = {}

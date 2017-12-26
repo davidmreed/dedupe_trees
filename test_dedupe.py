@@ -304,6 +304,15 @@ class test_FileCatalog(unittest.TestCase):
         self.assertEqual(sorted(c.get_groups(), key=operator.itemgetter(0)), [
                           ['foo', 'foo'], ['test', 'test']])
 
+    def test_FileCatalog_Exclusions(self):
+        c = FileCatalog(lambda entry: None)
+
+        c.add_entry('')
+        c.add_entry('')
+        
+        self.assertEqual(0, len(c.store))
+        self.assertEquals(c.get_groups(), [])
+
 
 class test_DeduplicateOperation(unittest.TestCase):
     def setUp(self):
