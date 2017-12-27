@@ -200,11 +200,14 @@ class test_CopyPatternDuplicateResolver(unittest.TestCase):
         file_one = DummyEntry('Copy of test')
         file_two = DummyEntry('test')
         file_three = DummyEntry('test copy 3.txt')
+        file_four = DummyEntry('test (4).txt')
+        file_five = DummyEntry('._test.txt')
+        file_six = DummyEntry('1_est.txt')
 
         r = CopyPatternDuplicateResolver().resolve(
-            [file_one, file_two, file_three])
+            [file_one, file_two, file_three, file_four, file_five, file_six])
 
-        self.assertEqual(r, ([file_two], [file_one, file_three]))
+        self.assertEqual(r, ([file_two], [file_one, file_three, file_four, file_five, file_six]))
 
 
 class test_ModificationDateDuplicateResolver(unittest.TestCase):

@@ -86,9 +86,10 @@ class CopyPatternDuplicateResolver(DuplicateResolver):
     # Resolve by removing files whose names match common "copy" patterns.
     copy_patterns = [
         re.compile('^Copy of'),
-        re.compile('.* copy [0-9]+\\.[a-zA-Z0-9]+$'),
+        re.compile('.* copy [0-9]+\\.[a-zA-Z0-9]{3}$'),
         re.compile('^\\._.+'),
-        re.compile('^[0-9]_.+')
+        re.compile('^[0-9]_.+'),
+        re.compile('.*\\([0-9]\\)\\.[a-zA-Z0-9]{3}$')
     ]
 
     def resolve(self, flist):
