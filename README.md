@@ -12,6 +12,12 @@ path depth, and so on.
 
 Duplicated items may be deleted, sequestered in a separate file tree, or labeled in a file.
 
+## License and Caveats
+
+`dedupe.py` is available under the MIT License. (c) 2017 David Reed. This tool is in beta stage and is provided without warranty of any kind; use `dedupe.py` at your own risk and in the understanding that it is designed to make alterations, including deletions, to your data.
+
+`dedupe.py` requires Python 3 and has been tested under Linux only. While it is expected to work under Mac OS X and likely Windows as well, it has not been tested in those environments.
+
 ## Usage
 
 For details of additional arguments, do `dedupe.py -h`.
@@ -24,7 +30,7 @@ A `dedupe.py` invocation looks like this:
 
 Here's what `dedupe.py` will do:
 
-  - Scan the directory trees `~/source_1` and `~/source_2` for duplicate files. `dedupe.py` makes two passes across each source, using file size in bytes to identify potential duplicates and the SHA-512 hash to confirm potentials.
+  - Scan the directory trees `~/source_1` and `~/source_2` for duplicate files. `dedupe.py` makes two passes across each source, using file size in bytes to identify potential duplicates and the SHA-512 hash to confirm potentials. Zero-byte files are ignored.
   - For each group of duplicate files, evaluate the `source-order` and `mod-date` resolvers, in that order.
     - The `source-order` resolver will prefer duplicated files found in a source specified earlier on the command line.
     - The `mod-date` resolver, with the `desc` modifier, will prefer the most recent copy of duplicated files.
@@ -84,7 +90,7 @@ The `interactive` resolver will stop the process for each group of duplicated fi
 
 ### `delete`
 
-Duplicated products are immediately deleted.
+Non-original duplicates are immediately deleted.
 
 ### `sequester`
 
@@ -95,7 +101,3 @@ The `sequester` sink will move all duplicate files within the sequester tree, re
 ### `output-only`
 
 The `output-only` sink will output the full paths of all files identified as non-original duplicates for later resolution. the `--sink-output-only-path` argument allows a file to be specified to receive this data; otherwise, it is written to standard output.
-
-`dedupe.py` is available under the MIT License. (c) 2017 David Reed. This tool is in beta stage and is provided without warranty of any kind; use `dedupe.py` at your own risk and in the understanding that it is designed to make alterations, including deletions, to your data.
-
-`dedupe.py` requires Python 3 and has been tested under Linux only. It is expected to work under Mac OS X, but has not been tested. While it is thought likely to work under Windows, it is completely untested and its behavior is not known.
