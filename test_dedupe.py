@@ -3,6 +3,8 @@
 import unittest
 import unittest.mock
 import tempfile
+import importlib 
+import importlib.util
 import os
 import io
 from dedupe import *
@@ -201,13 +203,12 @@ class test_CopyPatternDuplicateResolver(unittest.TestCase):
         file_two = DummyEntry('test')
         file_three = DummyEntry('test copy 3.txt')
         file_four = DummyEntry('test (4).txt')
-        file_five = DummyEntry('._test.txt')
         file_six = DummyEntry('1_est.txt')
 
         r = CopyPatternDuplicateResolver().resolve(
-            [file_one, file_two, file_three, file_four, file_five, file_six])
+            [file_one, file_two, file_three, file_four, file_six])
 
-        self.assertEqual(r, ([file_two], [file_one, file_three, file_four, file_five, file_six]))
+        self.assertEqual(r, ([file_two], [file_one, file_three, file_four, file_six]))
 
 
 class test_ModificationDateDuplicateResolver(unittest.TestCase):
@@ -315,6 +316,20 @@ class test_FileCatalog(unittest.TestCase):
         
         self.assertEqual(0, len(c.store))
         self.assertEquals(c.get_groups(), [])
+
+class test_SourceFilter(unittest.TestCase):
+    def test_SourceFilter(self):
+        names = ['test1']
+        patterns = [re.compile('^[0-9]'), re.compile('.*[0-9]$')]
+
+        sf = ConfiguredSourceFilter(names=names, patterns=patterns)
+        
+        self.assertEquals(True, sf.include_file('test', 'testdir'))
+        self.assertEquals(True, sf.include_file('test_z', 'testdir'))
+        self.assertEquals(True, sf.include_file('test1q', 'testdir'))
+        self.assertEquals(False, sf.include_file('1test', 'testdir'))
+        self.assertEquals(False, sf.include_file('test2', 'testdir'))
+        self.assertEquals(False, sf.include_file('test1', 'testdir'))
 
 
 class test_DeduplicateOperation(unittest.TestCase):
@@ -468,7 +483,6 @@ class test_FS_FileEntry(test_FileSystemTestBase, unittest.TestCase):
                         fe.get_digest())
         
 
-
 class test_FS_Source(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
         self.entry_state = [
@@ -490,6 +504,19 @@ class test_FS_Source(test_FileSystemTestBase, unittest.TestCase):
             [self.get_absolute_path(f) for (f, c) in self.entry_state],
             [fe.path for fe in f.entries]
         )
+
+    def test_FS_Source_WithFilter(self):
+        names = ['subdir1', 'file1']
+        patterns = [re.compile('f.*[4-5]$')]
+
+        sf = ConfiguredSourceFilter(names=names, patterns=patterns)
+        s = Source(self.get_absolute_path('source1'), 1, sf)
+        f = DummyCatalog()
+
+        s.walk(f)
+        self.assertEqual(1, len(f.entries))
+        self.assertEqual(self.get_absolute_path(self.entry_state[2][0]), f.entries[0].path)
+
 
 ### Tests for resolvers (individual, with real entry and source objects but no sink)
 
@@ -801,9 +828,6 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
 
 class test_CommandLine_Integration(test_Integration):
     def perform(self, args, exit_states):
-        import importlib 
-        import importlib.util
-
         spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -914,6 +938,80 @@ class test_CommandLine_Integration(test_Integration):
                 (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
                 (os.path.join('sources', 'source4', 'file9'), 'Contents1'),
                 (os.path.join('sources', 'source4', 'file10'), 'Contents5')
+            ]
+        )
+
+
+class test_Integration_Config(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = [
+            (os.path.join('source1', '.DS_Store'), 'Contents1'),
+            (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+            (os.path.join('source1', 'file3'), 'Contents2'),
+            (os.path.join('sources', 'source2', 'file4'), 'Contents1'),
+            (os.path.join('sources', 'source2', 'file5'), 'Contents2'),
+            (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+            (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+            (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+            (os.path.join('sources', 'source4', 'file9'), 'Contents1'),
+            (os.path.join('sources', 'source4', 'file10'), 'Contents5'),
+            (os.path.join('sources', 'source2', '.hg', 'hgfile'), 'Contents5'),
+            ('config.json', '{ "ignore_patterns": ["file[5-8]"], "ignore_names": ["file10"] }')
+        ]
+        super(test_Integration_Config, self).setUp()
+
+    def perform(self, args, exit_states):
+        spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        with unittest.mock.patch('sys.argv', args):
+            module.main()
+
+        self.check_exit_state(exit_states)
+
+    def test_Integration_DefaultConfig(self):
+        self.perform(
+            [
+                'dedupe.py', '--resolve-source-order', '--sink-delete',
+                self.get_absolute_path('source1'),
+                self.get_absolute_path(os.path.join('sources', 'source2')),
+                self.get_absolute_path(os.path.join('sources', 'source3')),
+                self.get_absolute_path(os.path.join('sources', 'source4'))
+            ],
+            [
+                (os.path.join('source1', '.DS_Store'), 'Contents1'),
+                (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+                (os.path.join('sources', 'source2', '.hg', 'hgfile'), 'Contents5'),
+                ('config.json', '{ "ignore_patterns": ["file[5-8]"], "ignore_names": ["file10"] }')
+            ]
+        )
+
+    def test_Integration_DiskConfig(self):
+        self.perform(
+            [
+                'dedupe.py', '--resolve-source-order', '--sink-delete',
+                '-c', self.get_absolute_path('config.json'),
+                self.get_absolute_path('source1'),
+                self.get_absolute_path(os.path.join('sources', 'source2')),
+                self.get_absolute_path(os.path.join('sources', 'source3')),
+                self.get_absolute_path(os.path.join('sources', 'source4'))
+            ],
+            [
+                (os.path.join('source1', '.DS_Store'), 'Contents1'),
+                (os.path.join('source1', 'Copy of file1'), 'Contents1'),
+                (os.path.join('source1', 'file3'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file5'), 'Contents2'),
+                (os.path.join('sources', 'source2', 'file6'), 'Contents3'),
+                (os.path.join('sources', 'source3', 'file7'), 'Contents4'),
+                (os.path.join('sources', 'source3', 'file8'), 'Contents5'),
+                (os.path.join('sources', 'source4', 'file10'), 'Contents5'),
+                (os.path.join('sources', 'source2', '.hg', 'hgfile'), 'Contents5'),
+                ('config.json', '{ "ignore_patterns": ["file[5-8]"], "ignore_names": ["file10"] }')
             ]
         )
 

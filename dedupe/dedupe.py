@@ -87,7 +87,6 @@ class CopyPatternDuplicateResolver(DuplicateResolver):
     copy_patterns = [
         re.compile('^Copy of'),
         re.compile('.* copy [0-9]+\\.[a-zA-Z0-9]{3}$'),
-        re.compile('^\\._.+'),
         re.compile('^[0-9]_.+'),
         re.compile('.*\\([0-9]\\)\\.[a-zA-Z0-9]{3}$')
     ]
@@ -220,16 +219,43 @@ class FileCatalog(object):
         return [self.store[key] for key in self.store.keys() if len(self.store[key]) > 1]
 
 
+class SourceFilter(object):
+    def include_file(self, fn, path):
+        raise NotImplementedError
+    def descend_into_directory(self, dirname, path):
+        raise NotImplementedError
+
+
+class ConfiguredSourceFilter(SourceFilter):
+    def __init__(self, patterns = None, names = None):
+        self.patterns = patterns
+        self.names = names
+
+    def include_file(self, fn, enclosing_dir):
+        if self.names is None or fn not in self.names:
+            if self.patterns is None or True not in [re.match(pattern, fn) is not None for pattern in self.patterns]:
+                return True
+
+        return False
+
+    def descend_into_directory(self, dirname, enclosing_dir):
+        return self.include_file(dirname, enclosing_dir)
+
+
 class Source(object):
-    def __init__(self, dpath, order):
+    def __init__(self, dpath, order, source_filter = None):
         self.path = os.path.abspath(dpath)
         self.order = order
+        self.source_filter = source_filter
 
     def walk(self, ctx):
-        for cwd, subdirs, files in os.walk(self.path):
+        for cwd, subdirs, files in os.walk(self.path, topdown=True):
+            subdirs[:] = [d for d in subdirs if self.source_filter is None or self.source_filter.descend_into_directory(d, cwd)]
+
             for f in files:
                 # os.walk returns filenames, not paths
-                ctx.add_entry(FileEntry(os.path.join(cwd, f), self))
+                if self.source_filter is None or self.source_filter.include_file(f, cwd):
+                    ctx.add_entry(FileEntry(os.path.join(cwd, f), self))
 
 
 class DeduplicateOperation(object):

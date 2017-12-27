@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import json
 from dedupe import *
 
 # Establish dictionaries mapping command-line arguments to resolvers and sinks
@@ -49,6 +50,11 @@ def main():
                         choices=verbosity_levels.keys(),
                         dest='verbosity', default='normal',
                         help='Log all actions')
+    
+    parser.add_argument('-c', '--config-file', 
+                        dest='config', 
+                        default='~/.deduperc',
+                        help='Configuration file in JSON format, if not ~/.deduperc')
 
     # Resolvers take an optional argument 'desc' to indicate descending/reverse sorting
     for item in resolvers:
@@ -79,11 +85,33 @@ def main():
     logging.getLogger('dedupe').setLevel(verbosity_levels[a.verbosity])
     logging.getLogger('dedupe').handlers[:] = [logging.StreamHandler()]
 
+    # Load config to get base ignores.
+    ignore_pattern_list = None
+    ignore_file_list = None
+    try:
+        with open(a.config, 'r') as config_file:
+            config = json.load(config_file)
+        
+        ignore_pattern_list = [re.compile(x) for x in config.get('ignore_patterns', [])]
+        ignore_file_list = config.get('ignore_names', [])
+        logging.getLogger('dedupe').info(
+            'Loaded configuration file {} with {} ignore names and {} ignore patterns.'.format(
+                a.config, len(ignore_file_list), len(ignore_pattern_list)
+            ))
+    except:
+        # Supply sensible defaults if we can't find or read a configuration file.
+        ignore_pattern_list = [re.compile(x) for x in 
+            ['^\\._.+']
+        ]
+        ignore_file_list = ['.DS_Store', '.git', '.hg']
+        logging.getLogger('dedupe').info('Unable to load a configuration file; using default ignore configuration.')
+    
     # Create and number sources.
     sources = []
+    source_filter = ConfiguredSourceFilter(ignore_pattern_list, ignore_file_list)
 
     for i in range(len(a.source_dir)):
-        sources.append(Source(a.source_dir[i], i+1))
+        sources.append(Source(a.source_dir[i], i+1, source_filter)) 
 
     # Create sink, pulling out applicable parameters.
     params = {}
