@@ -260,7 +260,7 @@ class DeduplicateOperation(object):
         to_sink = []
 
         for g in f.get_groups():
-            logger.info('Attempting to resolve group of %d duplicate files:\n%s',
+            logger.debug('Attempting to resolve group of %d duplicate files:\n%s',
                         len(g),
                         '\n'.join(map(operator.attrgetter('path'), g)))
             originals = g
@@ -288,7 +288,7 @@ class DeduplicateOperation(object):
                 logger.info('Marking files as originals (unable to resolve duplicates):\n%s',
                             '\n'.join(map(operator.attrgetter('path'), originals)))
             else:
-                logger.info('Marking file as original:\n%s',
+                logger.debug('Marking file as original:\n%s',
                             originals[0].path)
 
         # Appropriately discard all of the identified duplicate files.
