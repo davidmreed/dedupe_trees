@@ -18,6 +18,8 @@ Duplicated items may be deleted, sequestered in a separate file tree, or labeled
 
 `dedupe.py` requires Python 3 and has been tested under Linux only. While it is expected to work under Mac OS X and likely Windows as well, it has not been tested in those environments.
 
+`dedupe.py` does not follow links as it traverses directory trees. While `dedupe.py` uses simple checks to prevent some classes of errors from walking the same tree twice, it also does not check to ensure that your specified sources do not overlap. Overlapping sources may produce undesired results.
+
 ## Usage
 
 For details of additional arguments, do `dedupe.py -h`.
@@ -38,6 +40,17 @@ Here's what `dedupe.py` will do:
   - As files are identified as non-original duplicates, they are fed to the sink, in this case the `sequester` sink. `sequester` takes an additional argument, `sink-sequester-path`, which specifies a directory path. `sequester` rebuilds the file hierarchy for duplicate files within the sequestered tree, so no files are deleted.
 
 For more details on the included resolvers and sinks, see the sections below. For details on the formatting of command-line arguments, see `dedupe.py -h`.
+
+## Configuration
+
+An optional configuration file allows specification of file and directory names, as well as regular expressions, that should be ignored while traversing specified sources. The default configuration file is `~/.deduperc`, but another file may be specified with the `-c` command line option.
+
+Configuration files are specified in JSON format. Files should contain a top-level map object with two keys, `"ignore_names"` and 
+`"ignore_patterns"`, each of which contains a list of strings. `ignore_names` should be a list of literal strings; any file whose name is on this list is completely ignored by `dedupe.py`, and the tool will not scan any subdirectory whose name is contained in the list. (Note that *sources* whose names match the list *are* still walked).
+
+The `ignore_patterns` parameter has the same functionality, but using Python-style regular expressions.
+
+If no configuration is provided, `dedupe.py` will use a minimal set of exclusions: it will ignore files and directories called `.hg` or `.git`, and it will ignore the Mac OS X `.DS_Store` and `._*` files. To suppress these default exclusions, supply a configuration file with empty parameters.
 
 ## Resolvers
 
@@ -74,7 +87,6 @@ Within the same source, `source-order` has no effect and will pass all files to 
 The regular expressions used to do this matching are:
   - `^Copy of`
   - `.* copy [0-9]+\.[a-zA-Z0-9]{3}+$`
-  - `^\._.+`
   - `^[0-9]_.+`
   - `\([0-9]\)\.[a-zA-Z0-9]{3}$`
 
