@@ -294,19 +294,27 @@ class test_FileEntry(unittest.TestCase):
 
 class test_FileCatalog(unittest.TestCase):
     def test_FileCatalog(self):
-        c = FileCatalog(lambda x: x)
+        c = FileCatalog(lambda x: x.get_digest())
 
-        c.add_entry('test')
+        file_one = DummyEntry('test', 'Hash1')
+        c.add_entry(file_one)
         self.assertEqual(c.get_groups(), [])
 
-        c.add_entry('test')
-        self.assertEqual(c.get_groups(), [['test', 'test']])
+        file_two = DummyEntry('test2', 'Hash1')
+        c.add_entry(file_two)
+        self.assertEqual(c.get_groups(), [[file_one, file_two]])
 
-        c.add_entry('foo')
-        self.assertEqual(c.get_groups(), [['test', 'test']])
-        c.add_entry('foo')
-        self.assertEqual(sorted(c.get_groups(), key=operator.itemgetter(0)), [
-                          ['foo', 'foo'], ['test', 'test']])
+        c.add_entry(file_two)
+        self.assertEqual(c.get_groups(), [[file_one, file_two]])
+
+        file_three = DummyEntry('foo1', 'Hash2')
+        c.add_entry(file_three)
+        self.assertEqual(c.get_groups(), [[file_one, file_two]])
+
+        file_four = DummyEntry('foo2', 'Hash2')
+        c.add_entry(file_four)
+        self.assertEqual(sorted(c.get_groups(), key=lambda x: x[0].path), 
+            [[file_three, file_four], [file_one, file_two]])
 
     def test_FileCatalog_Exclusions(self):
         c = FileCatalog(lambda entry: None)

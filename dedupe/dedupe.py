@@ -209,11 +209,13 @@ class FileEntry(object):
 class FileCatalog(object):
     def __init__(self, idfunc):
         self.store = {}
+        self.path_store = set()
         self.idfunc = idfunc
 
     def add_entry(self, entry):
-        if self.idfunc(entry) is not None:
+        if self.idfunc(entry) is not None and entry.path not in self.path_store:
             self.store.setdefault(self.idfunc(entry), []).append(entry)
+            self.path_store.add(entry.path)
 
     def get_groups(self):
         return [self.store[key] for key in self.store.keys() if len(self.store[key]) > 1]
