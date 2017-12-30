@@ -56,6 +56,8 @@ If no configuration is provided, `dedupe.py` will use a minimal set of exclusion
 
 `dedupe.py` comes with the following resolvers.
 
+A number of the included resolvers are *sort-based*, which means that the resolver will sort the list of duplicated files by some attribute in ascending (default) or descending (if `desc` is specified) order. If a single file has the highest or lowest attribute value, it's marked as the original and the process ends; otherwise, the tied files with the highest or lower value are all marked as original and sent to the next resolver in the sequence.
+
 ### `path-length`
 
 This resolver sorts duplicated files by the number of path components in their paths, starting at their respective sources. It can be used to, for example, prefer files that have been sorted higher or lower in their hierarchies.
@@ -68,17 +70,17 @@ Given the sources `~/source_1` and `~/docs/source_2`, the path lengths for the f
   - `~/docs/source_2/stuff/file.txt`: 2
   - `~/docs/source_2/things/and/other/stuff/file.txt`: 5
 
-`path-length` by default prefers files higher in the hierarchy; to prefer deeper files, specify `desc`. Like all sort-based resolvers, `path-length` will prefer a single file with the highest/lowest attribute value; if more than one file have the same value, they will both be considered originals and sent to the next resolver in the chain.
+`path-length` by default prefers files higher in the hierarchy; to prefer deeper files, specify `desc`. Like all sort-based resolvers, `path-length` will prefer a single file with the longest/shortest path length; if more than one file has the same path length, they will all be considered originals and sent to the next resolver in the chain.
 
 ### `source-order`
 
-`source-order` prefers files based on the positions of their respective sources on the command line. By default, earlier sources are preferred to later ones; to prefer later ones, specify `desc`.
+`source-order` prefers files based on the positions of their respective sources on the command line. By default, earlier sources are preferred to later ones; to prefer later ones, specify `desc`. 
 
-Within the same source, `source-order` has no effect and will pass all files to the next resolver.
+Within the same source, `source-order` has no effect and will pass all files to the next resolver. Like all sort-based resolvers, `source-order` will prefer a single file with the earliest/latest source order.
 
 ### `mod-date`
 
-`mod-date` chooses files based on their file system modification date. By default, earlier files are preferred; to choose later files, specify `desc`. Like all sort-based resolvers, files that are tied are passed on to the next resolver.
+`mod-date` chooses files based on their file system modification date. By default, earlier files are preferred; to choose later files, specify `desc`. Like all sort-based resolvers, `mod-date` will prefer a single file with the earliest/latest modification date; if more than one file has the same modification date, they will all be considered originals and sent to the next resolver in the chain.
 
 ### `copy-pattern`
 
@@ -94,7 +96,7 @@ The regular expressions used to do this matching are:
 
 ### `interactive`
 
-The `interactive` resolver will stop the process for each group of duplicated files and request user input to resolve the duplicates. Other resolvers, like `copy-pattern`, may be specified before `interactive` to reduce the set of duplicates, but resolvers specified after `copy-pattern` will never be invoked.
+The `interactive` resolver will stop the process for each group of duplicated files and request user input to resolve the duplicates. `interactive` is not a sort-based resolver. Other resolvers, like `copy-pattern`, may be specified before `interactive` to reduce the set of duplicates, but resolvers specified after `interactive` will never be invoked.
 
 ## Sinks
 
@@ -106,7 +108,7 @@ Non-original duplicates are immediately deleted.
 
 ### `sequester`
 
-A required command line option, `--sink-sequester-path PATH`, provides the location of another directory tree, which must be outside all of the sources.
+A required command line option, `--sink-sequester-path PATH`, provides the location of another directory tree, which must be outside all of the sources. (This requirement is not checked by `dedupe.py`; placing the sequestration tree within one of the sources may produce unexpected and negative results).
 
 The `sequester` sink will move all duplicate files within the sequester tree, replicating their original hierarchy position within their sources.
 
