@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import json
-from dedupe import *
+from dedupe_trees import *
 
 # Establish dictionaries mapping command-line arguments to resolvers and sinks
 resolvers = {

@@ -1,13 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import unittest
 import unittest.mock
 import tempfile
-import importlib 
-import importlib.util
 import os
 import io
-from dedupe import *
+from dedupe_trees import *
 
 ### Dummy/stub objects for testing
 
@@ -879,12 +877,10 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
 
 class test_CommandLine_Integration(test_Integration):
     def perform(self, args, exit_states):
-        spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        import bin.dedupe_trees as ddt
 
         with unittest.mock.patch('sys.argv', args):
-            module.main()
+            ddt.main()
 
         self.check_exit_state(exit_states)
 
@@ -1012,12 +1008,10 @@ class test_Integration_Config(test_FileSystemTestBase, unittest.TestCase):
         super(test_Integration_Config, self).setUp()
 
     def perform(self, args, exit_states):
-        spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        import bin.dedupe_trees as ddt
 
         with unittest.mock.patch('sys.argv', args):
-            module.main()
+            ddt.main()
 
         self.check_exit_state(exit_states)
 
@@ -1068,14 +1062,10 @@ class test_Integration_Config(test_FileSystemTestBase, unittest.TestCase):
 
 class test_ResolverAction(unittest.TestCase):
     def test_ResolverAction(self):
-        import importlib 
         import argparse
+        import bin.dedupe_trees as ddt
 
-        spec = importlib.util.spec_from_file_location('dedupe_driver', 'dedupe.py')
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        r = module.ResolverAction([], 'resolvers')
+        r = ddt.ResolverAction([], 'resolvers')
         n = argparse.Namespace()
 
         r(None, n, ['asc'], '--resolve-copy-pattern')
