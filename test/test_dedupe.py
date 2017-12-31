@@ -899,7 +899,7 @@ class test_CommandLine_Integration(test_Integration):
             out_state.append(('output.txt', None))
             self.perform(
                 [
-                    'run_dedupe.py', '--resolve-interactive', '--sink-output-only',
+                    'dedupe_trees.py', '--resolve-interactive', '--sink-output-only',
                     '--sink-output-only-path', self.get_absolute_path('output.txt'),
                     self.get_absolute_path('source1'),
                     self.get_absolute_path(os.path.join('sources', 'source2')),
@@ -920,7 +920,7 @@ class test_CommandLine_Integration(test_Integration):
     def test_Integration_DepthAndSourceOrder_DeleteSink(self):
         self.perform(
             [
-                'run_dedupe.py', '--resolve-path-length', '--resolve-source-order', '--sink-delete',
+                'run_dedupe_trees.py', '--resolve-path-length', '--resolve-source-order', '--sink-delete',
                 self.get_absolute_path('source1'),
                 self.get_absolute_path(os.path.join('sources', 'source2')),
                 self.get_absolute_path(os.path.join('sources', 'source3')),
@@ -939,7 +939,7 @@ class test_CommandLine_Integration(test_Integration):
     def test_Integration_DepthAndSourceOrder_SequesterSink(self):
         self.perform(
             [
-                'run_dedupe.py', '--resolve-path-length', '--resolve-source-order',
+                'run_dedupe_trees.py', '--resolve-path-length', '--resolve-source-order',
                 '--sink-sequester', '--sink-sequester-path',
                 self.get_absolute_path(
                     os.path.join('sources', 'sequestration')),
@@ -969,7 +969,7 @@ class test_CommandLine_Integration(test_Integration):
     def test_Integration_CopyPattern_DeleteSink(self):
         self.perform(
             [
-                'run_dedupe.py', '--resolve-copy-pattern', '--sink-delete',
+                'run_dedupe_trees.py', '--resolve-copy-pattern', '--sink-delete',
                 self.get_absolute_path('source1'),
                 self.get_absolute_path(os.path.join('sources', 'source2')),
                 self.get_absolute_path(os.path.join('sources', 'source3')),
@@ -1018,7 +1018,7 @@ class test_Integration_Config(test_FileSystemTestBase, unittest.TestCase):
     def test_Integration_DefaultConfig(self):
         self.perform(
             [
-                'dedupe.py', '--resolve-source-order', '--sink-delete',
+                'dedupe_trees.py', '--resolve-source-order', '--sink-delete',
                 self.get_absolute_path('source1'),
                 self.get_absolute_path(os.path.join('sources', 'source2')),
                 self.get_absolute_path(os.path.join('sources', 'source3')),
@@ -1039,7 +1039,7 @@ class test_Integration_Config(test_FileSystemTestBase, unittest.TestCase):
     def test_Integration_DiskConfig(self):
         self.perform(
             [
-                'dedupe.py', '--resolve-source-order', '--sink-delete',
+                'dedupe_trees.py', '--resolve-source-order', '--sink-delete',
                 '-c', self.get_absolute_path('config.json'),
                 self.get_absolute_path('source1'),
                 self.get_absolute_path(os.path.join('sources', 'source2')),
