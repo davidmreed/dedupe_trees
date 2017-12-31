@@ -10,7 +10,8 @@ resolvers = {
     'source-order': SourceOrderDuplicateResolver,
     'mod-date': ModificationDateDuplicateResolver,
     'copy-pattern': CopyPatternDuplicateResolver,
-    'interactive': InteractiveDuplicateResolver
+    'interactive': InteractiveDuplicateResolver,
+    'arbitrary': FilenameSortDuplicateResolver
 }
 
 sinks = {

@@ -265,7 +265,50 @@ class test_InteractiveDuplicateResolver(unittest.TestCase):
             self.assertTrue('File 1' in o.getvalue())
             self.assertTrue('File 2' in o.getvalue())
             self.assertTrue('File 3' in o.getvalue())
-        
+
+    def test_InteractiveDuplicateResolver_Skip(self):
+        file_one = DummyEntry('File 1')
+        file_two = DummyEntry('File 2')
+        file_three = DummyEntry('File 3')
+        o = io.StringIO()
+
+        with unittest.mock.patch('sys.stdout', o):
+            with unittest.mock.patch('builtins.input', return_value='s'):
+                r = InteractiveDuplicateResolver().resolve(
+                    [file_one, file_two, file_three])
+
+                self.assertEqual(r, ([file_one, file_two, file_three], []))
+
+
+    def test_InteractiveDuplicateResolver_Exit(self):
+        file_one = DummyEntry('File 1')
+        file_two = DummyEntry('File 2')
+        file_three = DummyEntry('File 3')
+        o = io.StringIO()
+
+        with unittest.mock.patch('sys.stdout', o):
+            with unittest.mock.patch('builtins.input', return_value='e'):
+                with self.assertRaises(UserCanceledException):
+                    InteractiveDuplicateResolver().resolve([file_one, file_two, file_three])
+
+
+class test_FilenameSortDuplicateResolver(test_AttrBasedDuplicateResolver):
+    def setUp(self):
+        self.s = FilenameSortDuplicateResolver()
+
+    def test_Sorting_Multi(self):
+        r = self.s.resolve([DummyEntry('test'), DummyEntry('here'), DummyEntry('strings'), DummyEntry('here')])
+
+        self.assertEqual(r, ([DummyEntry('here')], [DummyEntry('here'), DummyEntry('strings'), DummyEntry('test')]))
+
+    def test_Sorting_Equals(self):
+        r = self.s.resolve([DummyEntry('test'), DummyEntry('test'), DummyEntry('test')])
+
+        self.assertEqual(r, ([DummyEntry('test')], [DummyEntry('test'), DummyEntry('test')]))
+
+    def test_Sorting_Reverse(self):
+        # This isn't really a sort-based resolver
+        pass
 
 ### Tests for operational classes
 

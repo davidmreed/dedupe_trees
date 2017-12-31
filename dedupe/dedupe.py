@@ -104,6 +104,17 @@ class CopyPatternDuplicateResolver(DuplicateResolver):
         return originals, duplicates
 
 
+class FilenameSortDuplicateResolver(DuplicateResolver):
+    # Force resolution by choosing the single first sorted file
+
+    def resolve(self, flist):
+        sorted_list = sorted(flist, key=lambda entry: os.path.basename(entry.path))
+
+        return (sorted_list[:1], sorted_list[1:])
+
+class UserCanceledException(Exception):
+    pass
+
 class InteractiveDuplicateResolver(DuplicateResolver):
     # Allow the user to interactively resolve duplicate files.
     def resolve(self, flist):
@@ -111,7 +122,14 @@ class InteractiveDuplicateResolver(DuplicateResolver):
         for i in range(0, len(l)):
             print('%2d\t%s' % (i + 1, l[i].path))
 
-        d = int(input('Enter file to retain: '))
+        choice = input('Enter file number to retain, \'s\' to skip resolving this group, or \'e\' to exit the process.  ')
+
+        if choice in ['e', 'E']:
+            raise UserCanceledException()
+        elif choice in ['s', 'S']:
+            return flist, []
+
+        d = int(choice)
 
         orig = l.pop(d - 1)
         return [orig], l

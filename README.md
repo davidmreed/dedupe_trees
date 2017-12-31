@@ -96,7 +96,13 @@ The regular expressions used to do this matching are:
 
 ### `interactive`
 
-The `interactive` resolver will stop the process for each group of duplicated files and request user input to resolve the duplicates. `interactive` is not a sort-based resolver. Other resolvers, like `copy-pattern`, may be specified before `interactive` to reduce the set of duplicates, but resolvers specified after `interactive` will never be invoked.
+The `interactive` resolver will stop the process for each group of duplicated files and request user input to resolve the duplicates. `interactive` is not a sort-based resolver. Other resolvers, like `copy-pattern`, may be specified before `interactive` to reduce the set of duplicates, but resolvers specified after `interactive` will never be invoked unless the user chooses to skip interactive resolution of a specific group.
+
+### `arbitrary`
+
+The `arbitrary` resolver simply picks an arbitrary single file from the group to be the original and sinks the rest. It's useful as the last resolver in the chain, in a circumstance where you want to ensure that `dedupe.py` actually resolves all duplicate groups even if previous resolvers weren't able to differentiate between the duplicated copies. 
+
+`arbitrary` currently picks the first file sorted by file name, but that behavior isn't guaranteed.
 
 ## Sinks
 
