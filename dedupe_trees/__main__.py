@@ -131,4 +131,5 @@ def main():
     op.run()
 
 
-exit(main())
+if __name__ == '__main__':
+    exit(main())
