@@ -877,7 +877,7 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
 
 class test_CommandLine_Integration(test_Integration):
     def perform(self, args, exit_states):
-        import bin.dedupe_trees as ddt
+        import dedupe_trees.__main__ as ddt
 
         with unittest.mock.patch('sys.argv', args):
             ddt.main()
@@ -1008,7 +1008,7 @@ class test_Integration_Config(test_FileSystemTestBase, unittest.TestCase):
         super(test_Integration_Config, self).setUp()
 
     def perform(self, args, exit_states):
-        import bin.dedupe_trees as ddt
+        import dedupe_trees.__main__ as ddt
 
         with unittest.mock.patch('sys.argv', args):
             ddt.main()
@@ -1063,7 +1063,7 @@ class test_Integration_Config(test_FileSystemTestBase, unittest.TestCase):
 class test_ResolverAction(unittest.TestCase):
     def test_ResolverAction(self):
         import argparse
-        import bin.dedupe_trees as ddt
+        import dedupe_trees.__main__ as ddt
 
         r = ddt.ResolverAction([], 'resolvers')
         n = argparse.Namespace()
