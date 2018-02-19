@@ -90,3 +90,6 @@ ENV/
 
 # Vagrant
 .vagrant/
+
+README.rst
+.vscode

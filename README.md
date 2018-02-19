@@ -16,7 +16,7 @@ Duplicated items may be deleted, sequestered in a separate file tree, or labeled
 
 `dedupe_trees.py` is available under the MIT License. (c) 2017 David Reed. This tool is in beta stage and is provided without warranty of any kind; use `dedupe_trees.py` at your own risk and in the understanding that it is designed to make alterations, including deletions, to your data.
 
-`dedupe_trees.py` requires Python 3 and has been tested under Linux only. While it is expected to work under Mac OS X and likely Windows as well, it has not been tested in those environments. All testing is done on Python 3.6.
+`dedupe_trees.py` requires Python 3 and has been tested under Linux and Mac OS X (Python 3 must be installed on Mac). All testing is done on Python 3.5/3.6.
 
 `dedupe_trees.py` does not follow links as it traverses directory trees. While `dedupe_trees.py` uses simple checks to prevent some classes of errors from walking the same tree twice, it also does not check to ensure that your specified sources do not overlap. Overlapping sources may produce undesired results.
 
