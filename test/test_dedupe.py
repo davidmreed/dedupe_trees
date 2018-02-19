@@ -364,7 +364,7 @@ class test_FileCatalog(unittest.TestCase):
         c.add_entry('')
         
         self.assertEqual(0, len(c.store))
-        self.assertEquals(c.get_groups(), [])
+        self.assertEqual(c.get_groups(), [])
 
 class test_SourceFilter(unittest.TestCase):
     def test_SourceFilter(self):
@@ -373,12 +373,12 @@ class test_SourceFilter(unittest.TestCase):
 
         sf = ConfiguredSourceFilter(names=names, patterns=patterns)
         
-        self.assertEquals(True, sf.include_file('test', 'testdir'))
-        self.assertEquals(True, sf.include_file('test_z', 'testdir'))
-        self.assertEquals(True, sf.include_file('test1q', 'testdir'))
-        self.assertEquals(False, sf.include_file('1test', 'testdir'))
-        self.assertEquals(False, sf.include_file('test2', 'testdir'))
-        self.assertEquals(False, sf.include_file('test1', 'testdir'))
+        self.assertEqual(True, sf.include_file('test', 'testdir'))
+        self.assertEqual(True, sf.include_file('test_z', 'testdir'))
+        self.assertEqual(True, sf.include_file('test1q', 'testdir'))
+        self.assertEqual(False, sf.include_file('1test', 'testdir'))
+        self.assertEqual(False, sf.include_file('test2', 'testdir'))
+        self.assertEqual(False, sf.include_file('test1', 'testdir'))
 
 
 class test_DeduplicateOperation(unittest.TestCase):
