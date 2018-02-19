@@ -24,5 +24,13 @@ jobs:
                     mkdir -p test-reports
                     pytest --junitxml=test-reports/junit.xml --cov-config .coveragerc --cov=dedupe_trees
                     codecov
+            - run:
+                name: Validate Package
+                command: | 
+                    . venv/bin/activate
+                    touch README.rst
+                    python setup.py bdist_wheel
+                    pip install dist/*.whl
+                    python3 test/test_dedupe.py
             - store_test_results:
                 path: test-reports

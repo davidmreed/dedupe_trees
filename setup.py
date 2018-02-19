@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='dedupe_trees',
-    version='1.0.0b3',
+    version='1.0.0b4',
     description='A tool to compare and deduplicate divergent file trees, especially with different organization or hierarchy levels.',
     long_description=open('README.rst').read(),
     author='David Reed',
@@ -12,7 +12,7 @@ setup(
     keywords=['deduplicate'],
     platforms='Any',
     classifiers=[
-        'Development Status :: 3 - Beta',
+        'Development Status :: 4 - Beta',
         'Environment :: Console',
         'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: MIT License',
