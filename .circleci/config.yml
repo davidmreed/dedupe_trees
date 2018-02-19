@@ -28,6 +28,7 @@ jobs:
             - run:
                 name: Build and Validate Package
                 command: | 
+                    . venv/bin/activate
                     pandoc -s -o README.rst README.md
                     python setup.py bdist_wheel
                     pip install dist/*.whl
