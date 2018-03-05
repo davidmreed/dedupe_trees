@@ -83,8 +83,13 @@ def main():
 
     a = parser.parse_args()
 
-    logging.getLogger('dedupe').setLevel(verbosity_levels[a.verbosity])
-    logging.getLogger('dedupe').handlers[:] = [logging.StreamHandler()]
+    logging.getLogger(__name__).setLevel(verbosity_levels[a.verbosity])
+    logging.getLogger(__name__).handlers[:] = [logging.StreamHandler()]
+
+    # Check for required parameters that aren't enforced by argparse.
+    if a.sink_class is None or a.resolvers is None:
+        parser.print_help()
+        parser.exit(1)
 
     # Load config to get base ignores.
     ignore_pattern_list = None
@@ -95,7 +100,7 @@ def main():
         
         ignore_pattern_list = [re.compile(x) for x in config.get('ignore_patterns', [])]
         ignore_file_list = config.get('ignore_names', [])
-        logging.getLogger('dedupe').info(
+        logging.getLogger(__name__).info(
             'Loaded configuration file {} with {} ignore names and {} ignore patterns.'.format(
                 a.config, len(ignore_file_list), len(ignore_pattern_list)
             ))
@@ -105,7 +110,7 @@ def main():
             ['^\\._.+']
         ]
         ignore_file_list = ['.DS_Store', '.git', '.hg']
-        logging.getLogger('dedupe').info('Unable to load a configuration file; using default ignore configuration.')
+        logging.getLogger(__name__).info('Unable to load a configuration file; using default ignore configuration.')
     
     # Create and number sources.
     sources = []
@@ -115,13 +120,22 @@ def main():
         sources.append(Source(a.source_dir[i], i+1, source_filter)) 
 
     # Create sink, pulling out applicable parameters.
-    params = {}
+    params = {}        
     for arg in sinks[a.sink_class]['args']:
         this_arg_name = 'sink-arguments-' + a.sink_class + '-' + arg['name'] 
         if hasattr(a, this_arg_name):
             this_arg = getattr(a, this_arg_name)
             if this_arg is not None:
                 params[arg['name']] = this_arg[0]
+            else:
+                # Fail if an arg isn't provided and doesn't supply a default.
+                if arg.get('default') is None:
+                    logging.getLogger(__name__).error('The argument {} for the sink {} is required.'.format(
+                        '--sink-' + a.sink_class + '-' + arg['name'], a.sink_class
+                    ))
+                    parser.print_help()
+                    parser.exit(1)
+
 
     sink = sinks[a.sink_class]['class'](**params)
 
