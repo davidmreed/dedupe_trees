@@ -1081,6 +1081,42 @@ class test_ResolverAction(unittest.TestCase):
         self.assertIsInstance(resolvers[1], SourceOrderDuplicateResolver)
         self.assertEqual(True, resolvers[1].reverse)
 
+class test_ErrorHandling_Arguments(test_FileSystemTestBase, unittest.TestCase):
+    def setUp(self):
+        self.entry_state = []
+        super(test_ErrorHandling_Arguments, self).setUp()
+
+    def test_ErrorHandling_MissingResolver(self):
+        import dedupe_trees.__main__ as ddt
+
+        with unittest.mock.patch('sys.argv', 
+                ['dedupe_trees.py', '--sink-delete',
+                 self.get_absolute_path(self.temp_dir)]):
+            retval = ddt.main()
+
+            self.assertEqual(1, retval)
+
+    def test_ErrorHandling_MissingSink(self):
+        import dedupe_trees.__main__ as ddt
+
+        with unittest.mock.patch('sys.argv', 
+                ['dedupe_trees.py', '--resolve-copy-pattern',
+                 self.get_absolute_path(self.temp_dir)]):
+            retval = ddt.main()
+
+            self.assertEqual(1, retval)
+
+    def test_ErrorHandling_MissingSinkArgument(self):
+        import dedupe_trees.__main__ as ddt
+
+        with unittest.mock.patch('sys.argv', 
+                ['dedupe_trees.py', '--resolve-copy-pattern',
+                 '--sink-sequester',
+                 self.get_absolute_path(self.temp_dir)]):
+            retval = ddt.main()
+
+            self.assertEqual(1, retval)
+
 
 if __name__ == '__main__':
     unittest.main()

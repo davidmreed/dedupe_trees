@@ -89,7 +89,7 @@ def main():
     # Check for required parameters that aren't enforced by argparse.
     if a.sink_class is None or a.resolvers is None:
         parser.print_help()
-        parser.exit(1)
+        return 1
 
     # Load config to get base ignores.
     ignore_pattern_list = None
@@ -110,7 +110,7 @@ def main():
             ['^\\._.+']
         ]
         ignore_file_list = ['.DS_Store', '.git', '.hg']
-        logging.getLogger(__name__).info('Unable to load a configuration file; using default ignore configuration.')
+        logging.getLogger(__name__).debug('Unable to load a configuration file; using default ignore configuration.')
     
     # Create and number sources.
     sources = []
@@ -134,8 +134,7 @@ def main():
                         '--sink-' + a.sink_class + '-' + arg['name'], a.sink_class
                     ))
                     parser.print_help()
-                    parser.exit(1)
-
+                    return 1
 
     sink = sinks[a.sink_class]['class'](**params)
 
@@ -143,6 +142,8 @@ def main():
     op = DeduplicateOperation(sources, a.resolvers, sink)
 
     op.run()
+
+    return 0
 
 
 if __name__ == '__main__':
