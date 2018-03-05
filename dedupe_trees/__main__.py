@@ -35,6 +35,9 @@ class ResolverAction(argparse.Action):
 
         # By default, sort in ascending order unless 'desc' is specified
         if values is not None and len(values) > 0:
+            if values[0].lower() not in ['desc', 'asc']:
+                raise Exception('Sort-based resolvers take an argument of \'asc\' or \'desc\' to specify sorting ({} provided)'.format(values[0]))
+            
             resolver.reverse = values[0].lower() == 'desc'
 
         getattr(namespace, self.dest).append(resolver)
@@ -59,8 +62,14 @@ def main():
 
     # Resolvers take an optional argument 'desc' to indicate descending/reverse sorting
     for item in resolvers:
-        parser.add_argument('--resolve-' + item, dest='resolvers', nargs='?',
-                            action=ResolverAction)
+        if issubclass(resolvers[item], SortBasedDuplicateResolver):
+            parser.add_argument('--resolve-' + item, dest='resolvers', 
+                                nargs='?',
+                                choices=['asc', 'desc'],
+                                action=ResolverAction)
+        else:
+            parser.add_argument('--resolve-' + item, dest='resolvers', 
+                                action=ResolverAction, nargs=0)
 
     # Only one sink can be supplied. Each sink can provide its own arguments.
     sink_group = parser.add_mutually_exclusive_group()
