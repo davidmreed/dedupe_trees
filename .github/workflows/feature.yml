@@ -78,12 +78,6 @@ jobs:
         run: |
           poetry run pytest
           poetry run codecov
-      - name: Store Results
-        if: always()
-        uses: actions/upload-artifact@v1
-        with:
-          name: junit
-          path: test-reports
 
   build:
     name: Build Binary
