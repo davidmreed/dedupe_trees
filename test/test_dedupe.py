@@ -1,31 +1,32 @@
+import hashlib
+import io
+import os
+import re
+import tempfile
 import unittest
 import unittest.mock
-import tempfile
-import hashlib
-import os
-import io
-import re
+
 from dedupe_trees import (
-    Source,
+    AttrBasedDuplicateResolver,
+    ConfiguredSourceFilter,
+    CopyPatternDuplicateResolver,
+    DeduplicateOperation,
+    DeleteDuplicateFileSink,
     DuplicateFileSink,
     DuplicateResolver,
     FileCatalog,
-    join_paths_componentwise,
-    SortBasedDuplicateResolver,
-    AttrBasedDuplicateResolver,
-    PathLengthDuplicateResolver,
-    OutputOnlyDuplicateFileSink,
-    DeduplicateOperation,
-    DeleteDuplicateFileSink,
-    ModificationDateDuplicateResolver,
-    InteractiveDuplicateResolver,
     FileEntry,
-    ConfiguredSourceFilter,
-    CopyPatternDuplicateResolver,
-    UserCanceledException,
     FilenameSortDuplicateResolver,
-    SourceOrderDuplicateResolver,
+    InteractiveDuplicateResolver,
+    ModificationDateDuplicateResolver,
+    OutputOnlyDuplicateFileSink,
+    PathLengthDuplicateResolver,
     SequesterDuplicateFileSink,
+    SortBasedDuplicateResolver,
+    Source,
+    SourceOrderDuplicateResolver,
+    UserCanceledException,
+    join_paths_componentwise,
 )
 
 # Dummy/stub objects for testing

@@ -27,3 +27,8 @@ repos:
       language: system
       entry: poetry run flake8
       types: [python]
+    - id: isort
+      name: isort
+      language: system
+      entry: poetry run isort
+      types: [python]

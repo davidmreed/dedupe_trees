@@ -16,6 +16,7 @@ black = "^19.10b0"
 pre-commit = "^2.4.0"
 rope = "^0.17.0"
 pyinstaller = "^3.6"
+isort = "^4.3.21"
 
 [tool.black]
 line-length = 88

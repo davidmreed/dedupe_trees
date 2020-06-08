@@ -1,10 +1,10 @@
 import abc
-import os
 import hashlib
 import itertools
-import operator
-import re
 import logging
+import operator
+import os
+import re
 import sys
 
 

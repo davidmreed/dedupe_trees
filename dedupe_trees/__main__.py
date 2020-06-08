@@ -1,22 +1,23 @@
 import argparse
 import json
-import sys
 import logging
 import re
+import sys
+
 from dedupe_trees import (
-    DeduplicateOperation,
-    PathLengthDuplicateResolver,
-    SourceOrderDuplicateResolver,
-    ModificationDateDuplicateResolver,
-    CopyPatternDuplicateResolver,
-    InteractiveDuplicateResolver,
-    FilenameSortDuplicateResolver,
-    SortBasedDuplicateResolver,
-    DeleteDuplicateFileSink,
-    SequesterDuplicateFileSink,
-    OutputOnlyDuplicateFileSink,
     ConfiguredSourceFilter,
+    CopyPatternDuplicateResolver,
+    DeduplicateOperation,
+    DeleteDuplicateFileSink,
+    FilenameSortDuplicateResolver,
+    InteractiveDuplicateResolver,
+    ModificationDateDuplicateResolver,
+    OutputOnlyDuplicateFileSink,
+    PathLengthDuplicateResolver,
+    SequesterDuplicateFileSink,
+    SortBasedDuplicateResolver,
     Source,
+    SourceOrderDuplicateResolver,
 )
 
 # Establish dictionaries mapping command-line arguments to resolvers and sinks
