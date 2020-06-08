@@ -1,6 +1,23 @@
 import argparse
 import json
-from .dedupe_trees import *
+import sys
+import logging
+import re
+from dedupe_trees import (
+    DeduplicateOperation,
+    PathLengthDuplicateResolver,
+    SourceOrderDuplicateResolver,
+    ModificationDateDuplicateResolver,
+    CopyPatternDuplicateResolver,
+    InteractiveDuplicateResolver,
+    FilenameSortDuplicateResolver,
+    SortBasedDuplicateResolver,
+    DeleteDuplicateFileSink,
+    SequesterDuplicateFileSink,
+    OutputOnlyDuplicateFileSink,
+    ConfiguredSourceFilter,
+    Source,
+)
 
 # Establish dictionaries mapping command-line arguments to resolvers and sinks
 resolvers = {
@@ -142,7 +159,7 @@ def main():
                 a.config, len(ignore_file_list), len(ignore_pattern_list)
             )
         )
-    except:
+    except IOError:
         # Supply sensible defaults if we can't find or read a configuration file.
         ignore_pattern_list = [re.compile(x) for x in ["^\\._.+"]]
         ignore_file_list = [".DS_Store", ".git", ".hg"]

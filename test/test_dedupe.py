@@ -1,14 +1,37 @@
 import unittest
 import unittest.mock
 import tempfile
+import hashlib
 import os
 import io
-from dedupe_trees import *
+import re
+from dedupe_trees import (
+    Source,
+    DuplicateFileSink,
+    DuplicateResolver,
+    FileCatalog,
+    join_paths_componentwise,
+    SortBasedDuplicateResolver,
+    AttrBasedDuplicateResolver,
+    PathLengthDuplicateResolver,
+    OutputOnlyDuplicateFileSink,
+    DeduplicateOperation,
+    DeleteDuplicateFileSink,
+    ModificationDateDuplicateResolver,
+    InteractiveDuplicateResolver,
+    FileEntry,
+    ConfiguredSourceFilter,
+    CopyPatternDuplicateResolver,
+    UserCanceledException,
+    FilenameSortDuplicateResolver,
+    SourceOrderDuplicateResolver,
+    SequesterDuplicateFileSink,
+)
 
-### Dummy/stub objects for testing
+# Dummy/stub objects for testing
 
 
-class DummyEntry(object):
+class DummyEntry:
     def __init__(self, path, digest=None, source=None):
         self.path = path
         self.digest = digest
@@ -80,7 +103,7 @@ class DevilOriginalDuplicateResolver(DuplicateResolver):
         return flist, []
 
 
-### Tests for global utility functions
+# Tests for global utility functions
 
 
 class test_UtilityFunctions(unittest.TestCase):
@@ -108,9 +131,9 @@ class test_UtilityFunctions(unittest.TestCase):
         )
 
 
-### Tests for resolvers (in-memory only, no disk access)
+# Tests for resolvers (in-memory only, no disk access)
 
-### Tests for base resolver classes
+# Tests for base resolver classes
 
 
 class test_SortBasedDuplicateResolver(unittest.TestCase):
@@ -206,7 +229,7 @@ class test_AttrBasedDuplicateResolver(unittest.TestCase):
         )
 
 
-### Tests for concrete resolver classes
+# Tests for concrete resolver classes
 
 
 class test_PathLengthDuplicateResolver(unittest.TestCase):
@@ -371,7 +394,7 @@ class test_FilenameSortDuplicateResolver(test_AttrBasedDuplicateResolver):
         pass
 
 
-### Tests for operational classes
+# Tests for operational classes
 
 
 class test_FileEntry(unittest.TestCase):
@@ -581,7 +604,7 @@ class test_FileSystemTestBase(object):
         os.rmdir(self.temp_dir)
 
 
-### Tests for core classes, with filesystem access
+# Tests for core classes, with filesystem access
 
 
 class test_FS_FileEntry(test_FileSystemTestBase, unittest.TestCase):
@@ -642,7 +665,7 @@ class test_FS_Source(test_FileSystemTestBase, unittest.TestCase):
         )
 
 
-### Tests for resolvers (individual, with real entry and source objects but no sink)
+# Tests for resolvers (individual, with real entry and source objects but no sink)
 
 
 class test_FS_InteractiveDuplicateResolver(test_FileSystemTestBase, unittest.TestCase):
@@ -842,9 +865,7 @@ class test_FS_CopyPatternDuplicateResolver(test_FileSystemTestBase, unittest.Tes
         )
 
 
-### Tests for sinks (with file system access)
-
-
+# Tests for sinks (with file system access)
 class test_FS_DeleteDuplicateFileSink(test_FileSystemTestBase, unittest.TestCase):
     def setUp(self):
         self.entry_state = [("test " + str(i), None) for i in range(1, 10)]
@@ -912,7 +933,7 @@ class test_FS_OutputOnlyDuplicateFileSink(test_FileSystemTestBase, unittest.Test
         self.check_exit_state(self.entry_state)
 
 
-### Integration tests (executing against the disk with groups of resolvers and a sink)
+# Integration tests (executing against the disk with groups of resolvers and a sink)
 
 
 class test_Integration(test_FileSystemTestBase, unittest.TestCase):
@@ -1052,7 +1073,7 @@ class test_Integration(test_FileSystemTestBase, unittest.TestCase):
         )
 
 
-### Command-line integration tests (pass real parameter sets to main and execute against disk)
+# Command-line integration tests (pass real parameter sets to main and execute against disk)
 
 
 class test_CommandLine_Integration(test_Integration):
@@ -1338,7 +1359,7 @@ class test_ErrorHandling_Arguments(test_FileSystemTestBase, unittest.TestCase):
         with unittest.mock.patch(
             "sys.argv",
             [
-                "dedupe_trees.py",
+                "dedupe_trees",
                 "--resolve-copy-pattern",
                 self.get_absolute_path(self.temp_dir),
             ],
@@ -1353,7 +1374,7 @@ class test_ErrorHandling_Arguments(test_FileSystemTestBase, unittest.TestCase):
         with unittest.mock.patch(
             "sys.argv",
             [
-                "dedupe_trees.py",
+                "dedupe_trees",
                 "--resolve-copy-pattern",
                 "--sink-sequester",
                 self.get_absolute_path(self.temp_dir),

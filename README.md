@@ -45,7 +45,7 @@ For more details on the included resolvers and sinks, see the sections below. Fo
 
 An optional configuration file allows specification of file and directory names, as well as regular expressions, that should be ignored while traversing specified sources. The default configuration file is `~/.deduperc`, but another file may be specified with the `-c` command line option.
 
-Configuration files are specified in JSON format. Files should contain a top-level map object with two keys, `"ignore_names"` and 
+Configuration files are specified in JSON format. Files should contain a top-level map object with two keys, `"ignore_names"` and
 `"ignore_patterns"`, each of which contains a list of strings. `ignore_names` should be a list of literal strings; any file whose name is on this list is completely ignored by `dedupe_trees.py`, and the tool will not scan any subdirectory whose name is contained in the list. (Note that *sources* whose names match the list *are* still walked).
 
 The `ignore_patterns` parameter has the same functionality, but using Python-style regular expressions.
@@ -74,7 +74,7 @@ Given the sources `~/source_1` and `~/docs/source_2`, the path lengths for the f
 
 ### `source-order`
 
-`source-order` prefers files based on the positions of their respective sources on the command line. By default, earlier sources are preferred to later ones; to prefer later ones, specify `desc`. 
+`source-order` prefers files based on the positions of their respective sources on the command line. By default, earlier sources are preferred to later ones; to prefer later ones, specify `desc`.
 
 Within the same source, `source-order` has no effect and will pass all files to the next resolver. Like all sort-based resolvers, `source-order` will prefer a single file with the earliest/latest source order.
 
@@ -92,7 +92,7 @@ The regular expressions used to do this matching are:
   - `^[0-9]_.+`
   - `\([0-9]\)\.[a-zA-Z0-9]{3}$`
 
-`copy-pattern` is a useful resolver to specify early in the sequence. 
+`copy-pattern` is a useful resolver to specify early in the sequence.
 
 ### `interactive`
 
@@ -100,7 +100,7 @@ The `interactive` resolver will stop the process for each group of duplicated fi
 
 ### `arbitrary`
 
-The `arbitrary` resolver simply picks an arbitrary single file from the group to be the original and sinks the rest. It's useful as the last resolver in the chain, in a circumstance where you want to ensure that `dedupe_trees.py` actually resolves all duplicate groups even if previous resolvers weren't able to differentiate between the duplicated copies. 
+The `arbitrary` resolver simply picks an arbitrary single file from the group to be the original and sinks the rest. It's useful as the last resolver in the chain, in a circumstance where you want to ensure that `dedupe_trees.py` actually resolves all duplicate groups even if previous resolvers weren't able to differentiate between the duplicated copies.
 
 `arbitrary` currently picks the first file sorted by file name, but that behavior isn't guaranteed.
 
